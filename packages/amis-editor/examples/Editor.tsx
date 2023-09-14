@@ -540,6 +540,7 @@ export default class AMisSchemaEditor extends React.Component<any, any> {
     // todo 后面要修改的 临时固定
     // Mount a method to window
     (window as any).getApis = function () {
+      (window as any).__apis = [];
       axios
         .get('http://127.0.0.1:5000/swagger/Default/swagger.json')
         .then(response => {

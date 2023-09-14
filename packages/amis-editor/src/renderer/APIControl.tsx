@@ -3,7 +3,7 @@ import mergeWith from 'lodash/mergeWith';
 import cloneDeep from 'lodash/cloneDeep';
 import cx from 'classnames';
 import {FormItem, Icon} from 'amis';
-import {Button, Select, PickerContainer, Spinner} from 'amis-ui';
+import {Input, Button, Select, PickerContainer, Spinner} from 'amis-ui';
 
 import {getEnv} from 'mobx-state-tree';
 import {normalizeApi, isEffectiveApi, isApiOutdated} from 'amis-core';
@@ -312,6 +312,13 @@ export default class APIControl extends React.Component<
   handleSimpleSelectChange(e: any) {
     debugger;
     let value = e.value;
+    this.handleSubmit(value, 'input');
+  }
+
+  @autobind
+  handleSimpleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.currentTarget.value;
+
     this.handleSubmit(value, 'input');
   }
 
@@ -989,8 +996,13 @@ export default class APIControl extends React.Component<
               {!renderLabel && this.renderHeader()}
 
               <div className="ae-ApiControl-content" key="content">
-                {/* <div className={cx('ae-ApiControl-input')}> */}
-                <div className="api-Select">
+                <div
+                  className={
+                    (window as any).__apis && (window as any).__apis.length > 0
+                      ? cx('api-Select')
+                      : cx('ae-ApiControl-input')
+                  }
+                >
                   {enableHighlight && highlightLabel ? (
                     <div className={cx('ae-ApiControl-highlight')}>
                       {loading ? (
@@ -1018,36 +1030,41 @@ export default class APIControl extends React.Component<
                         </span>
                       )}
                     </div>
+                  ) : // todo: 修改为Select
+                  (window as any).__apis &&
+                    (window as any).__apis.length > 0 ? (
+                    <>
+                      <Select
+                        ref={this.inputRef}
+                        value={apiStr}
+                        disabled={disabled}
+                        className="w-full"
+                        options={(window as any).__apis}
+                        onChange={this.handleSimpleSelectChange}
+                      />
+                      <Button
+                        onClick={() => {
+                          (window as any).getApis();
+                          this.state = {
+                            ...this.state,
+                            apis: (window as any).__apis
+                          };
+                        }}
+                      >
+                        刷新Api
+                      </Button>
+                    </>
                   ) : (
-                    // todo: 修改为Select
-                    // <Input
-                    //   ref={this.inputRef}
-                    //   value={apiStr}
-                    //   type="text"
-                    //   disabled={disabled}
-                    //   placeholder="http://"
-                    //   onChange={this.handleSimpleInputChange}
-                    // />
-                    <Select
+                    <Input
                       ref={this.inputRef}
                       value={apiStr}
+                      type="text"
                       disabled={disabled}
-                      className="w-full"
-                      options={(window as any).__apis}
-                      onChange={this.handleSimpleSelectChange}
+                      placeholder="http://"
+                      onChange={this.handleSimpleInputChange}
                     />
                   )}
-                  <Button
-                    onClick={() => {
-                      (window as any).getApis();
-                      this.state = {
-                        ...this.state,
-                        apis: (window as any).__apis
-                      };
-                    }}
-                  >
-                    刷新Api
-                  </Button>
+
                   {enablePickerMode ? this.renderPickerSchema() : null}
                 </div>
 

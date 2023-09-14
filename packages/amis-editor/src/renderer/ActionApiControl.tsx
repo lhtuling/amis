@@ -2,8 +2,8 @@ import React from 'react';
 import mergeWith from 'lodash/mergeWith';
 import cloneDeep from 'lodash/cloneDeep';
 import cx from 'classnames';
-import {FormItem, InputBox} from 'amis';
-import {PickerContainer} from 'amis-ui';
+import {FormItem} from 'amis';
+import {PickerContainer, Select} from 'amis-ui';
 
 import {getEnv} from 'mobx-state-tree';
 import {normalizeApi, isEffectiveApi, isApiOutdated} from 'amis-core';
@@ -909,9 +909,10 @@ export default class APIControl extends React.Component<
         {this.renderHeader()}
 
         <div className="ae-ApiControl-content" key="content">
-          <InputBox
+          <Select
             className="ae-ApiControl-input m-b-none"
             value={this.state.apiStr}
+            options={(window as any).apis}
             clearable={false}
             placeholder="http://"
             onChange={(value: string) => this.handleSubmit(value, 'input')}

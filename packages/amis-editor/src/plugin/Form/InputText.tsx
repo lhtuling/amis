@@ -296,7 +296,7 @@ export class TextControlPlugin extends BasePlugin {
                 getSchemaTpl('placeholder'),
                 getSchemaTpl('description'),
                 getSchemaTpl('autoFillApi'),
-                getSchemaTpl('options'),
+                getSchemaTpl('options')
               ]
             },
             {
