@@ -364,7 +364,7 @@ setSchemaTpl(
       )
       .map(item => ({
         type: 'collapse',
-        headingClassName: 'ae-formItemControl-header',
+        headingClassName: 'ae-formItemControl-header ae-Collapse-header--right',
         bodyClassName: 'ae-formItemControl-body',
         ...item,
         collapsed: item.collapsed ?? false,
@@ -1017,18 +1017,21 @@ setSchemaTpl('borderMode', {
   pipeIn: defaultValue('full')
 });
 
-setSchemaTpl('searchable', () =>
+setSchemaTpl('searchable', (schema: object = {}) =>
   getSchemaTpl('switch', {
     label: '可检索',
-    name: 'searchable'
+    name: 'searchable',
+    ...schema
   })
 );
 
-setSchemaTpl('sortable', {
-  type: 'switch',
-  label: '可排序',
-  name: 'sortable'
-});
+setSchemaTpl('sortable', (schema: object = {}) =>
+  getSchemaTpl('switch', {
+    label: '可排序',
+    name: 'sortable',
+    ...schema
+  })
+);
 
 setSchemaTpl('onlyLeaf', {
   type: 'switch',
@@ -1695,6 +1698,7 @@ setSchemaTpl('anchorNavTitle', {
   required: true
 });
 
+/** 给 CRUD2 使用 */
 setSchemaTpl('primaryField', {
   type: 'input-text',
   name: 'primaryField',
@@ -1702,5 +1706,17 @@ setSchemaTpl('primaryField', {
     '主键',
     '每行记录的唯一标识符，通常用于行选择、批量操作等场景。'
   ),
-  pipeIn: defaultValue('Id')
+  pipeIn: (value: any, formStore: any) => {
+    const rowSelection = formStore?.data?.rowSelection;
+
+    if (value == null || typeof value !== 'string') {
+      return rowSelection &&
+        rowSelection?.keyField &&
+        typeof rowSelection.keyField === 'string'
+        ? rowSelection?.keyField
+        : 'id';
+    }
+
+    return value;
+  }
 });

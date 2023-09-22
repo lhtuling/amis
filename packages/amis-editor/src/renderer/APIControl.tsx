@@ -533,7 +533,7 @@ export default class APIControl extends React.Component<
 
     return {
       type: 'form',
-      className: 'ae-ApiControl-form',
+      className: 'ae-ApiControl-form AMISCSSWrapper',
       mode: 'horizontal',
       submitOnChange,
       wrapWithPanel: false,
