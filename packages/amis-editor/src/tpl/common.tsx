@@ -18,6 +18,46 @@ import keys from 'lodash/keys';
 
 import type {DSField} from '../builder';
 
+// !ypf自用👇
+setSchemaTpl('tableCellType', {
+  label: '列类型',
+  name: 'type',
+  type: 'select',
+  creatable: false,
+  options: [
+    {
+      label: '文本',
+      value: 'text'
+    },
+    {
+      label: '图片',
+      value: 'image'
+    },
+    {
+      label: '日期',
+      value: 'date'
+    },
+    {
+      label: '进度',
+      value: 'progress'
+    },
+    {
+      label: '状态',
+      value: 'boolean'
+    },
+    {
+      label: '开关',
+      value: 'switch'
+    },
+    {
+      label: '映射',
+      value: 'mapping'
+    }
+  ]
+});
+
+// !ypf自用👆
+
 /**
  * @deprecated 兼容当前组件的switch
  */
@@ -364,7 +404,7 @@ setSchemaTpl(
       )
       .map(item => ({
         type: 'collapse',
-        headingClassName: 'ae-formItemControl-header ae-Collapse-header',
+        headingClassName: 'ae-formItemControl-header',
         bodyClassName: 'ae-formItemControl-body',
         ...item,
         collapsed: item.collapsed ?? false,
@@ -495,6 +535,10 @@ setSchemaTpl('inputType', {
     {
       label: '文本',
       value: 'input-text'
+    },
+    {
+      label: '数字',
+      value: 'input-number'
     },
     {
       label: '密码',
@@ -875,9 +919,8 @@ setSchemaTpl('newVisible', {
   label: '可见',
   mode: 'normal',
   name: 'visible',
-  expressionName: 'visibleOn',
-  visibleOn:
-    'data.visible || data.visible === false || data.visibleOn !== undefined'
+  expressionName: 'visibleOn'
+  // visibleOn:'data.visible || data.visible === false || data.visibleOn !== undefined'
 });
 
 setSchemaTpl('hidden', {
@@ -1713,7 +1756,7 @@ setSchemaTpl('primaryField', {
         rowSelection?.keyField &&
         typeof rowSelection.keyField === 'string'
         ? rowSelection?.keyField
-        : 'id';
+        : 'Id';
     }
 
     return value;

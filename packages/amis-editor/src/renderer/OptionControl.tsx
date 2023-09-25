@@ -474,6 +474,11 @@ export default class OptionControl extends React.Component<
     } = this.props;
     const classPrefix = env?.theme?.classPrefix;
     const {source} = this.state;
+
+    const data: Partial<OptionControlProps> = {
+      source: ''
+    };
+
     const optionSourceList = (
       [
         {
@@ -499,7 +504,14 @@ export default class OptionControl extends React.Component<
       }>
     ).map(item => ({
       ...item,
-      onClick: () => this.handleSourceChange(item.value)
+      onClick: () => {
+        const {onBulkChange} = this.props;
+        debugger;
+        if (typeof onBulkChange === 'function') {
+          onBulkChange(data);
+        }
+        this.handleSourceChange(item.value);
+      }
     }));
 
     return (

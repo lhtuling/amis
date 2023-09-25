@@ -409,7 +409,8 @@ export class ButtonPlugin extends BasePlugin {
         className: 'p-none',
         body:
           !!context.schema.actionType ||
-          ['submit', 'reset'].includes(context.schema.type)
+          // !ypf自用👇  增加了个button
+          ['submit', 'reset', 'button'].includes(context.schema.type)
             ? [
                 getSchemaTpl('eventControl', {
                   name: 'onEvent',

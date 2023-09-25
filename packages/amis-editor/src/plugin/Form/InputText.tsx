@@ -206,6 +206,7 @@ export class TextControlPlugin extends BasePlugin {
 
                     const is_old_email = oldValue === 'input-email';
                     const is_old_url = oldValue === 'input-url';
+                    const is_old_number = oldValue === 'input-number';
 
                     if (is_old_email) {
                       validations && delete validations.isEmail;
@@ -217,17 +218,30 @@ export class TextControlPlugin extends BasePlugin {
                       validationErrors && delete validationErrors.isUrl;
                     }
 
-                    form.setValues({
-                      type: value,
-                      showCounter: ['input-url', 'input-email'].includes(value)
-                        ? undefined
-                        : !!showCounter,
-                      autoComplete: ['input-text'].includes(value)
-                        ? autoComplete
-                        : undefined
-                    });
-                    form.changeValue('validations', {...validations});
-                    form.changeValue('validationErrors', {...validationErrors});
+                    if (is_old_number) {
+                      form.deleteValueByName('precision');
+                      form.deleteValueByName('step');
+                    }
+
+                    var newSchema: any = {
+                      type: value
+                    };
+
+                    if (['input-url', 'input-email'].includes(value)) {
+                      newSchema.showCounter = !!showCounter;
+                      form.changeValue('validations', {...validations});
+                      form.changeValue('validationErrors', {
+                        ...validationErrors
+                      });
+                    }
+                    if (['input-text'].includes(value)) {
+                      newSchema.autoComplete = autoComplete;
+                    }
+                    if (['input-number'].includes(value)) {
+                      newSchema.precision = 2;
+                      newSchema.step = 0.01;
+                    }
+                    form.setValues(newSchema);
                   }
                 }),
                 getSchemaTpl('tplFormulaControl', {
@@ -295,12 +309,13 @@ export class TextControlPlugin extends BasePlugin {
                 getSchemaTpl('remark'),
                 getSchemaTpl('placeholder'),
                 getSchemaTpl('description'),
-                getSchemaTpl('autoFillApi')
+                getSchemaTpl('autoFillApi'),
+                getSchemaTpl('options')
               ]
             },
             {
               title: '选项',
-              visibleOn: `${isText} && (data.options  || data.autoComplete || data.source)`,
+              visibleOn: `${isText} && (data.options  || data.autoComplete || (data.source || data.source===''))`,
               body: [
                 getSchemaTpl('optionControlV2'),
                 getSchemaTpl('multiple', {

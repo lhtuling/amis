@@ -18,6 +18,9 @@ export class TableCellPlugin extends BasePlugin {
   panelIcon = 'fa fa-columns';
   panelBodyCreator = (context: BaseEventContext) => {
     const i18nEnabled = getI18nEnabled();
+
+    const isUnderField = /\/field\/\w+$/.test(context.path as string);
+
     return [
       getSchemaTpl('tabs', [
         {
@@ -44,6 +47,60 @@ export class TableCellPlugin extends BasePlugin {
               label: '绑定字段名'
             }),
 
+            getSchemaTpl('tableCellType', {
+              value: '',
+              onChange: (
+                value: string,
+                oldValue: string,
+                model: any,
+                form: any
+              ) => {
+                const {
+                  showCounter,
+                  validations,
+                  validationErrors = {},
+                  autoComplete
+                } = form.data;
+
+                const is_old_email = oldValue === 'input-email';
+                const is_old_url = oldValue === 'input-url';
+                const is_old_number = oldValue === 'input-number';
+
+                if (is_old_email) {
+                  validations && delete validations.isEmail;
+                  validationErrors && delete validationErrors.isEmail;
+                }
+
+                if (is_old_url) {
+                  validations && delete validations.isUrl;
+                  validationErrors && delete validationErrors.isUrl;
+                }
+                if (is_old_number) {
+                  form.deleteValueByName('precision');
+                  form.deleteValueByName('step');
+                }
+
+                var newSchema: any = {
+                  type: value
+                };
+                if (['input-url', 'input-email'].includes(value)) {
+                  newSchema.showCounter = !!showCounter;
+                  form.changeValue('validations', {...validations});
+                  form.changeValue('validationErrors', {
+                    ...validationErrors
+                  });
+                }
+                if (['input-text'].includes(value)) {
+                  newSchema.autoComplete = autoComplete;
+                }
+                if (['input-number'].includes(value)) {
+                  newSchema.precision = 2;
+                  newSchema.step = 0.01;
+                }
+                form.setValues(newSchema);
+              }
+            }),
+
             getSchemaTpl('tableCellRemark'),
 
             getSchemaTpl('tableCellPlaceholder'),
@@ -52,7 +109,35 @@ export class TableCellPlugin extends BasePlugin {
               name: 'sortable',
               label: '是否可排序',
               description: '开启后可以根据当前列排序(后端排序)。'
-            })
+            }),
+
+            getSchemaTpl('collapseGroup', [
+              {
+                visibleOn: 'data.type=="mapping"',
+                title: '映射',
+                body: [
+                  isUnderField
+                    ? {
+                        type: 'tpl',
+                        inline: false,
+                        className: 'text-info text-sm',
+                        tpl: '<p>当前为字段内容节点配置，选择上层还有更多配置</p>'
+                      }
+                    : null,
+                  getSchemaTpl('mapSourceControl'),
+                  getSchemaTpl('valueFormula', {
+                    pipeOut: (value: any) => {
+                      return value == null || value === '' ? undefined : value;
+                    }
+                  }),
+                  getSchemaTpl('placeholder', {
+                    pipeIn: defaultValue('-'),
+                    label: '占位符'
+                  })
+                ]
+              },
+              getSchemaTpl('status')
+            ])
           ]
         },
         {

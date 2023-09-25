@@ -255,11 +255,13 @@ export default class Editor extends Component<EditorProps> {
   // 快捷功能键
   @autobind
   handleKeyDown(e: KeyboardEvent) {
-    // 弹窗模式不处理
-    if (this.props.isSubEditor) {
+    // !ypf自用👇
+    // 弹窗模式  预览模式不处理
+    if (this.props.isSubEditor || this.props.preview) {
       // e.defaultPrevented // 或者已经阻止不处理
       return;
     }
+    // !ypf自用👆
 
     const manager = this.manager;
     const store = manager.store;
