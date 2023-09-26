@@ -153,7 +153,6 @@ export interface APIControlProps extends FormControlProps {
 }
 
 export interface APIControlState {
-  apiStr: string;
   selectedItem?: any[];
   schema?: SchemaCollection;
   loading: boolean;
@@ -183,7 +182,6 @@ export default class APIControl extends React.Component<
     super(props);
 
     this.state = {
-      apiStr: this.transformApi2Str(props.value),
       selectedItem: [],
       schema: props.pickerSchema,
       loading: false,
@@ -198,7 +196,6 @@ export default class APIControl extends React.Component<
   componentDidUpdate(prevProps: APIControlProps) {
     const props = this.props;
     if (prevProps.value !== props.value) {
-      this.setState({apiStr: this.transformApi2Str(props.value)});
       this.updatePickerOptions();
     }
     if (anyChanged(['enablePickerMode', 'pickerSchema'], prevProps, props)) {
@@ -246,6 +243,44 @@ export default class APIControl extends React.Component<
             : ''
         }${api.url}`
       : '';
+  }
+
+  // api放上选择时候变宽
+  handleMouseOverEvent(thisDom: any): void {
+    var dom =
+      thisDom.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.querySelector(
+        '.api-Select'
+      );
+    var domWidth = dom.offsetWidth;
+    if (domWidth <= 300) {
+      dom.style = `
+        width: 500px !important;
+        position: fixed;
+        right: 0;
+        background-color: white;
+        padding: 5px;
+        z-index: 999999;
+        border-radius: 3px;
+        box-shadow: -2px 2px 20px 0px #e3e3e3;
+        `;
+    } else {
+    }
+  }
+  handleMouseOutEvent(thisDom: any): void {
+    var dom =
+      thisDom.target.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.querySelector(
+        '.api-Select'
+      );
+    // 只有在外部点击时候 才设置style为''
+    var removeStyle = function (event: any) {
+      if (event.target !== dom) {
+        if (dom.style) {
+          dom.style = '';
+        }
+      }
+      document.removeEventListener('click', removeStyle);
+    };
+    document.addEventListener('click', removeStyle);
   }
 
   async fetchOptions(keyword?: string) {
@@ -299,19 +334,16 @@ export default class APIControl extends React.Component<
   clearPickerValue() {
     const {onChange} = this.props;
 
-    this.setState(
-      {apiStr: this.transformApi2Str(undefined), selectedItem: []},
-      () => {
-        onChange?.(undefined);
-        this.focus();
-      }
-    );
+    this.setState(() => {
+      onChange?.(undefined);
+      this.focus();
+    });
   }
 
   @autobind
   handleSimpleSelectChange(e: any) {
-    debugger;
     let value = e.value;
+
     this.handleSubmit(value, 'input');
   }
 
@@ -991,13 +1023,12 @@ export default class APIControl extends React.Component<
       env,
       renderLabel
     } = this.props;
-    let {apiStr, selectedItem, loading, apis} = this.state;
+    let {selectedItem, loading, apis} = this.state;
     selectedItem =
       Array.isArray(selectedItem) && selectedItem.length !== 0
         ? selectedItem
         : [];
     const highlightLabel = selectedItem?.[0]?.[labelField] ?? '';
-
     return (
       <>
         <div className={cx('ae-ApiControl', className, {border})}>
@@ -1047,11 +1078,19 @@ export default class APIControl extends React.Component<
                   ) : // todo: 修改为Select
                   (window as any).__apis &&
                     (window as any).__apis.length > 0 ? (
-                    <>
+                    <div
+                      onMouseOver={e => {
+                        this.handleMouseOverEvent(e);
+                      }}
+                      onMouseOut={e => {
+                        this.handleMouseOutEvent(e);
+                      }}
+                    >
                       <Select
                         ref={this.inputRef}
-                        value={apiStr}
+                        value={this.transformApi2Str(value)}
                         disabled={disabled}
+                        searchable={true}
                         className="w-full"
                         options={(window as any).__apis}
                         onChange={this.handleSimpleSelectChange}
@@ -1067,11 +1106,11 @@ export default class APIControl extends React.Component<
                       >
                         刷新Api
                       </Button>
-                    </>
+                    </div>
                   ) : (
                     <Input
                       ref={this.inputRef}
-                      value={apiStr}
+                      value={value}
                       type="text"
                       disabled={disabled}
                       placeholder="http://"

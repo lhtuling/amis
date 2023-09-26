@@ -604,6 +604,7 @@ export default class AMisSchemaEditor extends React.Component<any, any> {
 
             result.push(...apis[tag]);
           });
+
           // 存到全局变量中
           (window as any).__apis = cloneDeep(result);
 
