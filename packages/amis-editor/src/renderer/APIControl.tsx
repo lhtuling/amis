@@ -252,6 +252,7 @@ export default class APIControl extends React.Component<
         '.api-Select'
       );
     var domWidth = dom.offsetWidth;
+    const topOffset = dom.getBoundingClientRect().top;
     if (domWidth <= 300) {
       dom.style = `
         width: 500px !important;
@@ -262,6 +263,7 @@ export default class APIControl extends React.Component<
         z-index: 999999;
         border-radius: 3px;
         box-shadow: -2px 2px 20px 0px #e3e3e3;
+        top:${topOffset}px;
         `;
     } else {
     }
@@ -1110,7 +1112,7 @@ export default class APIControl extends React.Component<
                   ) : (
                     <Input
                       ref={this.inputRef}
-                      value={value}
+                      value={this.transformApi2Str(value)}
                       type="text"
                       disabled={disabled}
                       placeholder="http://"

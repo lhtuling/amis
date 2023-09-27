@@ -1016,6 +1016,7 @@ export class EventControl extends React.Component<
     } = this.state;
     const eventSnapshot = {...onEvent};
     const {showOldEntry} = this.props;
+
     const eventKeys = Object.keys(eventSnapshot);
     return (
       <div className="ae-event-control">
