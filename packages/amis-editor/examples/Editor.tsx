@@ -723,6 +723,12 @@ export default class AMisSchemaEditor extends React.Component<any, any> {
 
       config = config || {};
       config.headers = config.headers || headers || {};
+
+      const xAccessToken = localStorage.getItem('x-access-token');
+      const accessToken = localStorage.getItem('access-token');
+      config.headers['Authorization'] = 'Bearer ' + accessToken;
+      config.headers['X-Authorization'] = 'Bearer ' + xAccessToken;
+
       config.withCredentials = false;
 
       // 增加headers

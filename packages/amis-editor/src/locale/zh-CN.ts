@@ -2845,7 +2845,8 @@ extendLocale('zh-CN', {
     '如果当前字段有值，请不要设置，否则覆盖。支持使用 <code>\\${xxx}</code> 来获取变量，或者用 lodash.template 语法来写模板逻辑。<a target="_blank" href="/amis/zh-CN/docs/concepts/template">详情</a>',
   '2c8a99d35cb5704994cabcc61a4c3a4a':
     '查看详情<a target="_blank" href="http://www.baidu.com">日志</a>。',
-  'bf9e242338d2c26b182aa6b9c015d84c': '如：this.type == "123"',
+  'bf9e242338d2c26b182aa6b9c015d84c':
+    '如：this.type == "123" 或者$Id   或者${Id&&Id>0}',
   '5414824fb8efdb7d59beae4bf95fdefd':
     '<p>当没开启数据映射时，发送数据自动切成白名单模式，配置啥发送啥，请绑定数据。如：<code>{"a": "\\${a}", "b": 2}</code></p><p>如果希望在默认的基础上定制，请先添加一个 Key 为 `&` Value 为 `\\$$` 作为第一行。</p><div>当值为 <code>__undefined</code>时，表示删除对应的字段，可以结合<code>{"&": "\\$$"}</code>来达到黑名单效果。</div>',
   'c130bd5b55edefdaf8923269e9a52439':

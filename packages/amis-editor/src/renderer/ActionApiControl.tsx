@@ -418,7 +418,8 @@ export default class APIControl extends React.Component<
                   name: 'sendOn',
                   mode: 'horizontal',
                   size: 'lg',
-                  placeholder: '如：this.type == "123"',
+                  placeholder:
+                    '如：this.type == "123" 或者$Id   或者${Id&&Id>0}',
                   description: '用表达式来设置该请求的发送条件'
                 },
                 {
