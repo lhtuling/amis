@@ -1098,17 +1098,6 @@ export default class APIControl extends React.Component<
                         options={(window as any).__apis}
                         onChange={this.handleSimpleSelectChange}
                       />
-                      <Button
-                        onClick={() => {
-                          (window as any).getApis();
-                          this.state = {
-                            ...this.state,
-                            apis: (window as any).__apis
-                          };
-                        }}
-                      >
-                        刷新Api
-                      </Button>
                     </div>
                   ) : (
                     <Input

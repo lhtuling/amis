@@ -607,10 +607,14 @@ export default class AMisSchemaEditor extends React.Component<any, any> {
 
           // 存到全局变量中
           (window as any).__apis = cloneDeep(result);
-
+          (window as any).amisStore.notify(
+            'success',
+            '成功获取到:' + result.length
+          );
           console.log('获取到所有的api', result);
         })
         .catch(error => {
+          (window as any).amisStore.notify('error', error);
           console.error(error);
         });
     };
@@ -869,6 +873,19 @@ export default class AMisSchemaEditor extends React.Component<any, any> {
                   切换语料内容
                 </Button>
               )}
+
+              <div
+                className={`header-action-btn primary`}
+                onClick={() => {
+                  (window as any).getApis();
+                  this.state = {
+                    ...this.state,
+                    apis: (window as any).__apis
+                  };
+                }}
+              >
+                刷新Api
+              </div>
 
               <div
                 className={`header-action-btn ${preview ? 'primary' : ''}`}

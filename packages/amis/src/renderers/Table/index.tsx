@@ -2366,7 +2366,6 @@ export default class Table extends React.Component<TableProps, object> {
     let {actions, render, store, classnames: cx, data} = this.props;
 
     actions = Array.isArray(actions) ? actions.concat() : [];
-
     if (
       store.toggable &&
       region === 'header' &&
