@@ -66,6 +66,8 @@ export function cleanUndefined(obj: any) {
   return obj;
 }
 
+let themeUselessPropKeys: Array<string> = [];
+
 /**
  * 把 schema 处理一下传给 Preview 去渲染
  * 给每个节点加个 $$id 这样方便编辑
@@ -86,6 +88,21 @@ export function JSONPipeIn(obj: any, generateId = false): any {
   if (!obj.$$id) {
     flag = true;
     toUpdate.$$id = guid();
+  }
+
+  // 因为旧版本的 bug，导致有些存量页面，出现大量无用配置
+  // 所以这里做个兼容，把这些无用的配置清理掉
+  // 找特征，只有同时存在前三个属性，说明这是以前的脏数据
+  if (
+    themeUselessPropKeys.length > 2 &&
+    obj[themeUselessPropKeys[0]] &&
+    obj[themeUselessPropKeys[1]] &&
+    obj[themeUselessPropKeys[2]]
+  ) {
+    flag = true;
+    themeUselessPropKeys.forEach(key => {
+      toUpdate[key] = undefined;
+    });
   }
 
   // ['visible', 'visibleOn', 'hidden', 'hiddenOn', 'toggled'].forEach(key => {
@@ -1046,14 +1063,12 @@ export function getI18nEnabled() {
 }
 
 /** schema 翻译方法 */
-export function translateSchema(schema: any, replaceData?: any) {
+export function translateSchema(schema: any, replaceData?: any, skipFn?: any) {
   replaceData = replaceData || (window as any)?.editorStore?.appCorpusData;
   if (!isPlainObject(replaceData)) {
     return schema;
   }
-  return mapObject(schema, (item: any) => {
-    return replaceData[item] || item;
-  });
+  return mapObject(schema, (item: any) => replaceData[item] || item, skipFn);
 }
 
 /** 应用级别的翻译方法 */
@@ -1089,10 +1104,12 @@ export function needFillPlaceholder(curProps: any) {
     curProps.regionConfig?.needFillPlaceholder
   );
 }
+
 // 设置主题数据
 export function setThemeConfig(config: any) {
   themeConfig = config;
   themeOptionsData = getGlobalData(themeConfig);
+  themeUselessPropKeys = Object.keys(getThemeConfig());
 }
 
 // 获取主题数据和样式选择器数据
@@ -1155,10 +1172,10 @@ export function style2ThemeCss(data: any) {
       baseControlClassName
     };
   } else {
-    themeCss.baseControlClassName = Object.assign(
-      data.themeCss.baseControlClassName,
-      baseControlClassName
-    );
+    themeCss.baseControlClassName = {
+      ...data.themeCss.baseControlClassName,
+      ...baseControlClassName
+    };
   }
   return {
     ...data,

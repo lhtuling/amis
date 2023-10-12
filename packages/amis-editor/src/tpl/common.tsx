@@ -907,6 +907,7 @@ setSchemaTpl('readonly', {
 
 setSchemaTpl('visible', {
   type: 'ae-StatusControl',
+  defaultTrue: true,
   label: '可见',
   mode: 'normal',
   name: 'visible',

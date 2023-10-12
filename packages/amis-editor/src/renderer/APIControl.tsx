@@ -21,6 +21,7 @@ import type {SchemaObject, SchemaCollection, SchemaApi} from 'amis';
 import type {Api} from 'amis';
 import type {FormControlProps} from 'amis-core';
 import type {ActionSchema} from 'amis';
+import debounce from 'lodash/debounce';
 
 export type ApiObject = Api & {
   messages?: Record<
@@ -349,12 +350,9 @@ export default class APIControl extends React.Component<
     this.handleSubmit(value, 'input');
   }
 
-  @autobind
-  handleSimpleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.currentTarget.value;
-
+  handleSimpleInputChange = debounce((value: string) => {
     this.handleSubmit(value, 'input');
-  }
+  }, 1000);
 
   @autobind
   handleSubmit(values: SchemaApi, action?: 'input' | 'picker-submit') {
@@ -1106,7 +1104,9 @@ export default class APIControl extends React.Component<
                       type="text"
                       disabled={disabled}
                       placeholder="http://"
-                      onChange={this.handleSimpleInputChange}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        this.handleSimpleInputChange(e.currentTarget.value)
+                      }
                     />
                   )}
                   {enablePickerMode ? this.renderPickerSchema() : null}

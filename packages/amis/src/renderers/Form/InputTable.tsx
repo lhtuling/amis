@@ -1582,11 +1582,14 @@ export default class FormTable extends React.Component<TableProps, TableState> {
 
     let items = this.state.items;
     let showPager = false;
-    const page = this.state.page || 1;
+    let page = this.state.page || 1;
     let offset = 0;
     let lastPage = 1;
     if (typeof perPage === 'number' && perPage && items.length > perPage) {
       lastPage = Math.ceil(items.length / perPage);
+      if (page > lastPage) {
+        page = lastPage;
+      }
       items = items.slice((page - 1) * perPage, page * perPage);
       showPager = true;
       offset = (page - 1) * perPage;
@@ -1666,7 +1669,8 @@ export default class FormTable extends React.Component<TableProps, TableState> {
                   },
                   {
                     activePage: page,
-                    lastPage: lastPage,
+                    perPage,
+                    total: this.state.items.length,
                     onPageChange: this.handlePageChange,
                     className: 'InputTable-pager'
                   }
@@ -1683,11 +1687,37 @@ export default class FormTable extends React.Component<TableProps, TableState> {
   type: 'input-table'
 })
 export class TableControlRenderer extends FormTable {
-  setData(value: any, replace?: boolean, index?: number) {
-    if (index !== undefined && ~index) {
-      // 如果setValue动作传入了index，更新指定索引的值
-      const items = [...this.state.items];
-      items.splice(index, 1, value);
+  async setData(
+    value: any,
+    replace?: boolean,
+    index?: number | string,
+    condition?: any
+  ) {
+    const len = this.state.items.length;
+    if (index !== undefined) {
+      let items = [...this.state.items];
+      const indexs = String(index).split(',');
+      indexs.forEach(i => {
+        const intIndex = Number(i);
+        items.splice(intIndex, 1, value);
+      });
+      this.setState({items}, () => {
+        this.emitValue();
+      });
+    } else if (condition !== undefined) {
+      let items = [...this.state.items];
+      for (let i = 0; i < len; i++) {
+        const item = items[i];
+        const isUpdate = await evalExpressionWithConditionBuilder(
+          condition,
+          item
+        );
+
+        if (isUpdate) {
+          items.splice(i, 1, value);
+        }
+      }
+
       this.setState({items}, () => {
         this.emitValue();
       });
