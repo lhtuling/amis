@@ -107,26 +107,40 @@ export class Custom extends React.Component<CustomProps, object> {
   }
 
   componentDidUpdate(prevProps: CustomProps) {
-    if (!isEqual(this.props.onUpdate, prevProps.onUpdate)) {
-      this.initOnUpdate(this.props);
-    }
-    if (
-      !isEqual(this.props.onUpdate, prevProps.onUpdate) ||
-      !isEqual(this.props.data, prevProps.data)
-    ) {
-      this.onUpdate(this.dom, this.props.data, prevProps.data, this.props);
-    }
-    if (!isEqual(this.props.onMount, prevProps.onMount)) {
-      this.initOnMount(this.props);
-    }
-    if (!isEqual(this.props.onUnmount, prevProps.onUnmount)) {
-      this.initOnUnmount(this.props);
+    try {
+      if (!isEqual(this.props.onUpdate, prevProps.onUpdate)) {
+        this.initOnUpdate(this.props);
+      }
+      if (
+        !isEqual(this.props.onUpdate, prevProps.onUpdate) ||
+        !isEqual(this.props.data, prevProps.data)
+      ) {
+        this.onUpdate(this.dom, this.props.data, prevProps.data, this.props);
+      }
+      if (!isEqual(this.props.onMount, prevProps.onMount)) {
+        this.initOnMount(this.props);
+      }
+      if (!isEqual(this.props.onUnmount, prevProps.onUnmount)) {
+        this.initOnUnmount(this.props);
+      }
+    } catch (e) {
+      console.error(
+        '自定义组件执行onUpdate事件出错!编辑器内不会响应对应的功能代码!显示可能不准确',
+        e
+      );
     }
   }
 
   componentDidMount() {
     const {value, onChange} = this.props;
-    this.onMount(this.dom.current, value, onChange, this.props);
+    try {
+      this.onMount(this.dom.current, value, onChange, this.props);
+    } catch (e) {
+      console.error(
+        '自定义组件执行onMount事件出错!编辑器内不会响应对应的功能代码!显示可能不准确',
+        e
+      );
+    }
   }
 
   componentWillUnmount() {
