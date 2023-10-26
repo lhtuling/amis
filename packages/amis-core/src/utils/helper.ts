@@ -10,6 +10,7 @@ import isNaN from 'lodash/isNaN';
 import isNumber from 'lodash/isNumber';
 import isString from 'lodash/isString';
 import qs from 'qs';
+import {compile} from 'path-to-regexp';
 
 import type {Schema, PlainObject, FunctionPropertyNames} from '../types';
 
@@ -1358,6 +1359,19 @@ export function getTreeParent<T extends TreeItem>(tree: Array<T>, value: T) {
   return ancestors?.length ? ancestors[ancestors.length - 1] : null;
 }
 
+export function countTree<T extends TreeItem>(
+  tree: Array<T>,
+  iterator?: (item: T, key: number, level: number, paths?: Array<T>) => any
+): number {
+  let count = 0;
+  eachTree(tree, (item, key, level, paths) => {
+    if (!iterator || iterator(item, key, level, paths)) {
+      count++;
+    }
+  });
+  return count;
+}
+
 export function ucFirst(str?: string) {
   return typeof str === 'string'
     ? str.substring(0, 1).toUpperCase() + str.substring(1)
@@ -1566,8 +1580,9 @@ export function chainEvents(props: any, schema: any) {
 
 export function mapObject(
   value: any,
-  fn: Function,
-  skipFn?: (value: any) => boolean
+  valueMapper: (value: any) => any,
+  skipFn?: (value: any) => boolean,
+  keyMapper?: (key: string) => string
 ): any {
   // 如果value值满足skipFn条件则不做map操作
   skipFn =
@@ -1582,26 +1597,29 @@ export function mapObject(
           return false;
         };
 
-  if (!!skipFn(value)) {
+  if (skipFn(value)) {
     return value;
   }
 
   if (Array.isArray(value)) {
-    return value.map(item => mapObject(item, fn, skipFn));
+    return value.map(item => mapObject(item, valueMapper, skipFn, keyMapper));
   }
 
   if (isObject(value)) {
-    let tmpValue = {...value};
-    Object.keys(tmpValue).forEach(key => {
-      (tmpValue as PlainObject)[key] = mapObject(
-        (tmpValue as PlainObject)[key],
-        fn,
-        skipFn
+    let tmpValue = {};
+    Object.keys(value).forEach(key => {
+      const newKey = keyMapper ? keyMapper(key) : key;
+
+      (tmpValue as PlainObject)[newKey] = mapObject(
+        (value as PlainObject)[key],
+        valueMapper,
+        skipFn,
+        keyMapper
       );
     });
     return tmpValue;
   }
-  return fn(value);
+  return valueMapper(value);
 }
 
 export function loadScript(src: string) {
@@ -2024,25 +2042,57 @@ export function isNumeric(value: any): boolean {
 }
 
 /**
+ * 解析Query字符串中的原始类型，目前仅支持转化布尔类型
+ *
+ * @param query 查询字符串
+ * @returns 解析后的查询字符串
+ */
+export function parsePrimitiveQueryString(rawQuery: Record<string, any>) {
+  if (!isPlainObject(rawQuery)) {
+    return rawQuery;
+  }
+
+  const query = JSONValueMap(rawQuery, value => {
+    /** 解析布尔类型，后续有需要在这里扩充 */
+    if (value === 'true' || value === 'false') {
+      return value === 'true';
+    }
+
+    return value;
+  });
+
+  return query;
+}
+
+/**
  * 获取URL链接中的query参数（包含hash mode）
  *
  * @param location Location对象，或者类Location结构的对象
+ * @param {Object} options 配置项
+ * @param {Boolean} options.parsePrimitive 是否将query的值解析为原始类型，目前仅支持转化布尔类型
  */
 export function parseQuery(
-  location?: Location | {query?: any; search?: any; [propName: string]: any}
+  location?: Location | {query?: any; search?: any; [propName: string]: any},
+  options?: {parsePrimitive?: boolean}
 ): Record<string, any> {
+  const {parsePrimitive = false} = options || {};
   const query =
     (location && !(location instanceof Location) && location?.query) ||
     (location && location?.search && qsparse(location.search.substring(1))) ||
     (window.location.search && qsparse(window.location.search.substring(1)));
+  const normalizedQuery = isPlainObject(query)
+    ? parsePrimitive
+      ? parsePrimitiveQueryString(query)
+      : query
+    : {};
   /* 处理hash中的query */
   const hash = window.location?.hash;
   let hashQuery = {};
   let idx = -1;
+
   if (typeof hash === 'string' && ~(idx = hash.indexOf('?'))) {
     hashQuery = qsparse(hash.substring(idx + 1));
   }
-  const normalizedQuery = isPlainObject(query) ? query : {};
 
   return merge(normalizedQuery, hashQuery);
 }
@@ -2179,4 +2229,12 @@ export function evalTrackExpression(
 // 很奇怪的问题，react-json-view import 有些情况下 mod.default 才是 esModule
 export function importLazyComponent(mod: any) {
   return mod.default.__esModule ? mod.default : mod;
+}
+
+export function replaceUrlParams(path: string, params: Record<string, any>) {
+  if (typeof path === 'string' && /\:\w+/.test(path)) {
+    return compile(path)(params);
+  }
+
+  return path;
 }

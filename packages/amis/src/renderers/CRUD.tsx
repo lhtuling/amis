@@ -57,6 +57,7 @@ import {
   isPureVariable,
   resolveVariableAndFilter,
   parseQuery,
+  parsePrimitiveQueryString,
   isMobile
 } from 'amis-core';
 
@@ -362,6 +363,11 @@ export interface CRUDCommonSchema extends BaseSchema, SpinnerExtraProps {
    * 内容区域占满屏幕剩余空间
    */
   autoFillHeight?: TableSchema['autoFillHeight'];
+
+  /**
+   * 是否开启Query信息转换，开启后将会对url中的Query进行转换，将字符串格式的布尔值转化为同位类型
+   */
+  parsePrimitiveQuery?: boolean;
 }
 
 export type CRUDCardsSchema = CRUDCommonSchema & {
@@ -461,7 +467,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     'formStore',
     'autoFillHeight',
     'maxTagCount',
-    'overflowTagPopover'
+    'overflowTagPopover',
+    'parsePrimitiveQuery'
   ];
   static defaultProps = {
     toolbarInline: true,
@@ -478,7 +485,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     filterTogglable: false,
     filterDefaultVisible: true,
     loadDataOnce: false,
-    autoFillHeight: false
+    autoFillHeight: false,
+    parsePrimitiveQuery: true
   };
 
   control: any;
@@ -525,21 +533,22 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       pageField,
       perPageField,
       syncLocation,
-      loadDataOnce
+      loadDataOnce,
+      parsePrimitiveQuery
     } = props;
 
     this.mounted = true;
 
     if (syncLocation && location && (location.query || location.search)) {
       store.updateQuery(
-        parseQuery(location),
+        parseQuery(location, {parsePrimitive: parsePrimitiveQuery}),
         undefined,
         pageField,
         perPageField
       );
     } else if (syncLocation && !location && window.location.search) {
       store.updateQuery(
-        parseQuery(window.location),
+        parseQuery(window.location, {parsePrimitive: parsePrimitiveQuery}),
         undefined,
         pageField,
         perPageField
@@ -633,7 +642,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     ) {
       // 同步地址栏，那么直接检测 query 是否变了，变了就重新拉数据
       store.updateQuery(
-        parseQuery(props.location),
+        parseQuery(props.location, {parsePrimitive: props.parsePrimitiveQuery}),
         undefined,
         props.pageField,
         props.perPageField
@@ -666,7 +675,9 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       const next = resolveVariableAndFilter(props.source, props.data, '| raw');
 
       if (!this.lastData || this.lastData !== next) {
-        store.initFromScope(props.data, props.source);
+        store.initFromScope(props.data, props.source, {
+          columns: store.columns ?? props.columns
+        });
         this.lastData = next;
       }
     }
@@ -739,7 +750,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
 
       // 由于 ajax 一段时间后再弹出，肯定被浏览器给阻止掉的，所以提前弹。
       const redirect = action.redirect && filter(action.redirect, data);
-      redirect && action.blank && env.jumpTo(redirect, action);
+      redirect && action.blank && env.jumpTo(redirect, action, data);
 
       return store
         .saveRemote(action.api!, data, {
@@ -759,7 +770,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
           }
 
           const redirect = action.redirect && filter(action.redirect, data);
-          redirect && !action.blank && env.jumpTo(redirect, action);
+          redirect && !action.blank && env.jumpTo(redirect, action, data);
           action.reload
             ? this.reloadTarget(filterTarget(action.reload, data), data)
             : redirect
@@ -870,7 +881,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
               action.close && this.closeTarget(action.close);
 
               const redirect = action.redirect && filter(action.redirect, data);
-              redirect && env.jumpTo(redirect, action);
+              redirect && env.jumpTo(redirect, action, data);
             })
             .catch(() => null);
       } else if (onAction) {
@@ -970,7 +981,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       env,
       pageField,
       perPageField,
-      loadDataOnceFetchOnFilter
+      loadDataOnceFetchOnFilter,
+      parsePrimitiveQuery
     } = this.props;
 
     /** 找出clearValueOnHidden的字段, 保证updateQuery时不会使用上次的保留值 */
@@ -981,6 +993,11 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     values = syncLocation
       ? qsparse(qsstringify(values, undefined, true))
       : values;
+
+    /** 把布尔值反解出来 */
+    if (parsePrimitiveQuery) {
+      values = parsePrimitiveQueryString(values);
+    }
 
     store.updateQuery(
       {
@@ -1135,7 +1152,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
 
     let redirect = action.redirect ?? dialogAction.redirect;
     redirect = redirect && filter(redirect, ctx);
-    redirect && env.jumpTo(redirect, dialogAction);
+    redirect && env.jumpTo(redirect, dialogAction, ctx);
   }
 
   handleDialogClose(confirmed = false) {
@@ -1308,7 +1325,10 @@ export default class CRUD extends React.Component<CRUDProps, any> {
               ));
             return value;
           })
-      : source && store.initFromScope(data, source);
+      : source &&
+        store.initFromScope(data, source, {
+          columns: store.columns ?? columns
+        });
   }
 
   silentSearch(values?: object, clearSelection?: boolean, forceReload = false) {
@@ -1927,20 +1947,16 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       | 'popOverContainerSelector'
       | 'total'
       | 'perPageAvailable'
+      | 'showPerPage'
     > = {};
 
     /** 优先级：showPageInput显性配置 > (lastPage > 9) */
     if (typeof toolbar !== 'string') {
+      Object.assign(extraProps, toolbar);
       const showPageInput = (toolbar as Schema).showPageInput;
 
       extraProps.showPageInput =
         showPageInput === true || (lastPage > 9 && showPageInput == null);
-      extraProps.maxButtons = (toolbar as Schema).maxButtons;
-      extraProps.layout = (toolbar as Schema).layout;
-      extraProps.popOverContainerSelector = (
-        toolbar as Schema
-      ).popOverContainerSelector;
-      extraProps.perPageAvailable = (toolbar as Schema).perPageAvailable;
       extraProps.total = resolveVariableAndFilter(
         (toolbar as Schema).total,
         store.data
