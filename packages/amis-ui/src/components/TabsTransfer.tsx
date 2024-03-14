@@ -54,6 +54,10 @@ export interface TabsTransferProps
   ctx?: Record<string, any>;
   selectMode?: 'table' | 'list' | 'tree' | 'chained' | 'associated';
   searchable?: boolean;
+  /**
+   * 是否默认都展开
+   */
+  initiallyOpen?: boolean;
 }
 
 export interface TabsTransferState {
@@ -127,7 +131,6 @@ export class TabsTransfer extends React.Component<
         if (!Array.isArray(result)) {
           throw new Error('onSearch 需要返回数组');
         }
-
         this.setState({
           searchResult: result
         });
@@ -171,12 +174,17 @@ export class TabsTransfer extends React.Component<
       onlyChildren,
       selectMode,
       loadingConfig,
+      activeKey,
+      options: optionsConfig,
       valueField = 'value',
-      labelField = 'label'
+      labelField = 'label',
+      testIdBuilder
     } = this.props;
     const options = searchResult || [];
     const mode = searchResultMode || selectMode; // 没有配置时默认和左侧选项展示形式一致
+    const searchTIB = testIdBuilder?.getChild('search-result');
 
+    const activeTab = optionsConfig[activeKey];
     return mode === 'table' ? (
       <TableCheckboxes
         placeholder={noResultsText}
@@ -190,6 +198,7 @@ export class TabsTransfer extends React.Component<
         cellRender={cellRender}
         itemHeight={itemHeight}
         virtualThreshold={virtualThreshold}
+        testIdBuilder={searchTIB}
       />
     ) : mode === 'tree' ? (
       <Tree
@@ -204,6 +213,7 @@ export class TabsTransfer extends React.Component<
         showIcon={false}
         multiple={true}
         cascade={true}
+        autoCheckChildren={activeTab.autoCheckChildren}
         itemRender={
           optionItemRender
             ? (item: Option, states: ItemRenderStates) =>
@@ -214,6 +224,7 @@ export class TabsTransfer extends React.Component<
         }
         valueField={valueField}
         labelField={labelField}
+        testIdBuilder={searchTIB}
       />
     ) : mode === 'chained' ? (
       <ChainedCheckboxes
@@ -236,6 +247,7 @@ export class TabsTransfer extends React.Component<
         virtualThreshold={virtualThreshold}
         valueField={valueField}
         labelField={labelField}
+        testIdBuilder={searchTIB}
       />
     ) : (
       <ListCheckboxes
@@ -258,6 +270,7 @@ export class TabsTransfer extends React.Component<
         virtualThreshold={virtualThreshold}
         valueField={valueField}
         labelField={labelField}
+        testIdBuilder={searchTIB}
       />
     );
   }
@@ -272,7 +285,8 @@ export class TabsTransfer extends React.Component<
       translate: __,
       ctx,
       mobileUI,
-      searchable
+      searchable,
+      testIdBuilder
     } = this.props;
     const showOptions = options.filter(item => item.visible !== false);
 
@@ -290,6 +304,7 @@ export class TabsTransfer extends React.Component<
         className={cx('TabsTransfer-tabs')}
         onSelect={this.handleTabChange}
         activeKey={activeKey}
+        testIdBuilder={testIdBuilder?.getChild('tabs')}
       >
         {showOptions.map((option, index) => (
           <Tab
@@ -300,6 +315,7 @@ export class TabsTransfer extends React.Component<
               createObject(ctx, option)
             )}
             className="TabsTransfer-tab"
+            testIdBuilder={testIdBuilder?.getChild(`tab-${index}`)}
           >
             {option.searchable || searchable ? (
               <div
@@ -349,11 +365,14 @@ export class TabsTransfer extends React.Component<
       virtualThreshold,
       onlyChildren,
       loadingConfig,
+      initiallyOpen = true,
       valueField = 'value',
       labelField = 'label',
-      deferField = 'defer'
+      deferField = 'defer',
+      testIdBuilder
     } = this.props;
     const selectMode = option.selectMode || this.props.selectMode;
+    const selTIB = testIdBuilder?.getChild('selection');
 
     return selectMode === 'table' ? (
       <TableCheckboxes
@@ -371,6 +390,7 @@ export class TabsTransfer extends React.Component<
         virtualThreshold={virtualThreshold}
         valueField={valueField}
         labelField={labelField}
+        testIdBuilder={selTIB}
       />
     ) : selectMode === 'tree' ? (
       <Tree
@@ -400,6 +420,8 @@ export class TabsTransfer extends React.Component<
         virtualThreshold={virtualThreshold}
         valueField={valueField}
         labelField={labelField}
+        initiallyOpen={initiallyOpen}
+        testIdBuilder={selTIB}
       />
     ) : selectMode === 'chained' ? (
       <ChainedCheckboxes
@@ -425,6 +447,7 @@ export class TabsTransfer extends React.Component<
         virtualThreshold={virtualThreshold}
         valueField={valueField}
         labelField={labelField}
+        testIdBuilder={selTIB}
       />
     ) : selectMode === 'associated' ? (
       <AssociatedCheckboxes
@@ -455,6 +478,7 @@ export class TabsTransfer extends React.Component<
         valueField={valueField}
         labelField={labelField}
         deferField={deferField}
+        testIdBuilder={selTIB}
       />
     ) : (
       <ListCheckboxes
@@ -479,6 +503,7 @@ export class TabsTransfer extends React.Component<
         virtualThreshold={virtualThreshold}
         valueField={valueField}
         labelField={labelField}
+        testIdBuilder={selTIB}
       />
     );
   }

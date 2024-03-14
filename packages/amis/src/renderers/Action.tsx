@@ -244,6 +244,11 @@ export interface DialogActionSchema extends ButtonSchema {
   nextCondition?: SchemaExpression;
   reload?: SchemaReload;
   redirect?: string;
+
+  /**
+   * 数据映射
+   */
+  data?: any;
 }
 
 export interface DrawerActionSchema extends ButtonSchema {
@@ -264,6 +269,11 @@ export interface DrawerActionSchema extends ButtonSchema {
   nextCondition?: SchemaExpression;
   reload?: SchemaReload;
   redirect?: string;
+
+  /**
+   * 数据映射
+   */
+  data?: any;
 }
 
 export interface ToastActionSchema extends ButtonSchema {
@@ -736,6 +746,7 @@ export class Action extends React.Component<ActionProps, ActionState> {
       wrapperCustomStyle,
       css,
       id,
+      testIdBuilder,
       env
     } = this.props;
 
@@ -787,7 +798,12 @@ export class Action extends React.Component<ActionProps, ActionState> {
         className="Button-icon"
         classNameProp={cx(
           iconClassName,
-          setThemeClassName('iconClassName', id, themeCss || css)
+          setThemeClassName({
+            ...this.props,
+            name: 'iconClassName',
+            id,
+            themeCss: themeCss || css
+          })
         )}
       />
     );
@@ -798,7 +814,12 @@ export class Action extends React.Component<ActionProps, ActionState> {
         className="Button-icon"
         classNameProp={cx(
           rightIconClassName,
-          setThemeClassName('iconClassName', id, themeCss || css)
+          setThemeClassName({
+            ...this.props,
+            name: 'iconClassName',
+            id,
+            themeCss: themeCss || css
+          })
         )}
       />
     );
@@ -809,12 +830,23 @@ export class Action extends React.Component<ActionProps, ActionState> {
           loadingConfig={loadingConfig}
           className={cx(
             className,
-            setThemeClassName('wrapperCustomStyle', id, wrapperCustomStyle),
-            setThemeClassName('className', id, themeCss || css),
+            setThemeClassName({
+              ...this.props,
+              name: 'wrapperCustomStyle',
+              id,
+              themeCss: wrapperCustomStyle
+            }),
+            setThemeClassName({
+              ...this.props,
+              name: 'className',
+              id,
+              themeCss: themeCss || css
+            }),
             {
               [activeClassName || 'is-active']: isActive
             }
           )}
+          testIdBuilder={testIdBuilder}
           style={style}
           size={size}
           level={
@@ -846,6 +878,7 @@ export class Action extends React.Component<ActionProps, ActionState> {
         </Button>
         {/* button自定义样式 */}
         <CustomStyle
+          {...this.props}
           config={{
             themeCss: themeCss || css,
             classNames: [

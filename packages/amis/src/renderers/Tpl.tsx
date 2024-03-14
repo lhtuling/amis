@@ -7,7 +7,7 @@ import {
   CustomStyle,
   setThemeClassName
 } from 'amis-core';
-import {filter, asyncFilter} from 'amis-core';
+import {filter, asyncFilter, TestIdBuilder} from 'amis-core';
 import isEmpty from 'lodash/isEmpty';
 import {anyChanged, getPropValue} from 'amis-core';
 import {escapeHtml} from 'amis-core';
@@ -52,6 +52,8 @@ export interface TplSchema extends BaseSchema {
    * 角标
    */
   badge?: BadgeObject;
+
+  testidBuilder?: TestIdBuilder;
 }
 
 export interface TplProps extends RendererProps, TplSchema {
@@ -200,7 +202,8 @@ export class Tpl extends React.Component<TplProps, TplState> {
       id,
       wrapperCustomStyle,
       env,
-      themeCss
+      themeCss,
+      testIdBuilder
     } = this.props;
     const Component = wrapperComponent || (inline ? 'span' : 'div');
     const {content} = this.state;
@@ -218,14 +221,25 @@ export class Tpl extends React.Component<TplProps, TplState> {
         className={cx(
           'TplField',
           className,
-          setThemeClassName('baseControlClassName', id, themeCss),
-          setThemeClassName('wrapperCustomStyle', id, wrapperCustomStyle)
+          setThemeClassName({
+            ...this.props,
+            name: 'baseControlClassName',
+            id,
+            themeCss
+          }),
+          setThemeClassName({
+            ...this.props,
+            name: 'wrapperCustomStyle',
+            id,
+            themeCss: wrapperCustomStyle
+          })
         )}
         style={buildStyle(style, data)}
         {...(showNativeTitle ? {title: this.getTitle(content)} : {})}
         onClick={this.handleClick}
         onMouseEnter={this.handleMouseEnter}
         onMouseLeave={this.handleMouseLeave}
+        {...testIdBuilder?.getChild('tpl')?.getTestId()}
       >
         <span
           className={cln ? cx(cln) : undefined}
@@ -233,6 +247,7 @@ export class Tpl extends React.Component<TplProps, TplState> {
           dangerouslySetInnerHTML={{__html: env.filterHtml(content)}}
         ></span>
         <CustomStyle
+          {...this.props}
           config={{
             wrapperCustomStyle,
             id,

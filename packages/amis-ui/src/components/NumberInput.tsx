@@ -10,11 +10,19 @@ import getMiniDecimal, {
 } from '@rc-component/mini-decimal';
 
 import {Icon} from './icons';
-import {ThemeProps, themeable, isNumeric, autobind, ucFirst} from 'amis-core';
+import {
+  ThemeProps,
+  themeable,
+  isNumeric,
+  autobind,
+  ucFirst,
+  TestIdBuilder
+} from 'amis-core';
 
 export type ValueType = string | number;
 
 export interface NumberProps extends ThemeProps {
+  name?: string;
   placeholder?: string;
   max?: ValueType;
   min?: ValueType;
@@ -74,6 +82,8 @@ export interface NumberProps extends ThemeProps {
    * 数字输入框类名
    */
   inputControlClassName?: string;
+
+  testIdBuilder?: TestIdBuilder;
 }
 
 export interface NumberState {
@@ -317,7 +327,9 @@ export class NumberInput extends React.Component<NumberProps, NumberState> {
       inputRef,
       keyboard,
       inputControlClassName,
-      mobileUI
+      mobileUI,
+      name,
+      testIdBuilder
     } = this.props;
     const precisionProps: any = {
       precision: NumberInput.normalizePrecision(precision, step)
@@ -325,6 +337,7 @@ export class NumberInput extends React.Component<NumberProps, NumberState> {
 
     return (
       <InputNumber
+        name={name}
         className={cx(
           className,
           showSteps === false ? 'no-steps' : '',
@@ -356,6 +369,7 @@ export class NumberInput extends React.Component<NumberProps, NumberState> {
         stringMode={this.isBig ? true : false}
         keyboard={keyboard}
         {...precisionProps}
+        {...testIdBuilder?.getTestId()}
       />
     );
   }

@@ -852,7 +852,8 @@ export class Navigation extends React.Component<
       render,
       popOverContainer,
       env,
-      searchable
+      searchable,
+      testIdBuilder
     } = this.props;
     const {dropIndicator, filteredLinks} = this.state;
 
@@ -916,6 +917,7 @@ export class Navigation extends React.Component<
             isOpen={(item: NavigationItem) => !!item.open}
             stacked={!!stacked}
             mode={mode}
+            testIdBuilder={testIdBuilder}
             themeColor={themeColor}
             onSelect={this.handleClick}
             onToggle={this.toggleLink}

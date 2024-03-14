@@ -10,10 +10,13 @@ import {Badge} from 'amis-ui';
 import {ColorScale} from 'amis-core';
 import {isPureVariable, resolveVariableAndFilter} from 'amis-core';
 
+import type {TestIdBuilder} from 'amis-core';
+
 export interface TableCellProps extends RendererProps {
   wrapperComponent?: React.ElementType;
   column: any;
   contentsOnly?: boolean;
+  testIdBuilder?: TestIdBuilder;
 }
 
 export class TableCell extends React.Component<TableCellProps> {
@@ -64,6 +67,7 @@ export class TableCell extends React.Component<TableCellProps> {
       row,
       showBadge,
       itemBadge,
+      testIdBuilder,
       ...rest
     } = this.props;
 
@@ -98,7 +102,8 @@ export class TableCell extends React.Component<TableCellProps> {
 
     if (isTableCell) {
       // table Cell 会用 colGroup 来设置宽度，这里不需要再设置
-      style.width && (style = omit(style, ['width']));
+      // 同时剔除style中的定位相关样式，避免表格样式异常
+      style = omit(style, ['width', 'position', 'display']);
     } else if (width) {
       style = {
         ...style,
@@ -157,6 +162,7 @@ export class TableCell extends React.Component<TableCellProps> {
         className={cx(className)}
         tabIndex={tabIndex}
         onKeyUp={onKeyUp}
+        {...testIdBuilder?.getChild('cell').getTestId()}
       >
         {showBadge ? (
           <Badge

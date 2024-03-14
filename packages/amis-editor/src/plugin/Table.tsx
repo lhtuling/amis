@@ -513,6 +513,7 @@ export class TablePlugin extends BasePlugin {
                 formType: 'extend',
                 label: '头部',
                 name: 'showHeader',
+                pipeIn: (value: any) => value ?? true,
                 form: {
                   body: [
                     {
@@ -536,6 +537,7 @@ export class TablePlugin extends BasePlugin {
                 formType: 'extend',
                 label: '底部',
                 name: 'showFooter',
+                pipeIn: (value: any) => value ?? true,
                 form: {
                   body: [
                     {
@@ -742,7 +744,7 @@ export class TablePlugin extends BasePlugin {
       }));
     } else {
       // 只取10条预览，否则太多卡顿
-      props.value = arr.slice(0, 10);
+      props.value = arr.slice(0, 3);
     }
 
     // 编辑模式，不允许表格调整宽度

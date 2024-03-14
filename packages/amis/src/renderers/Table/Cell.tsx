@@ -7,7 +7,8 @@ import {
   ThemeProps,
   resolveVariable,
   buildTrackExpression,
-  evalTrackExpression
+  evalTrackExpression,
+  TestIdBuilder
 } from 'amis-core';
 import {BadgeObject, Checkbox, Icon, Spinner} from 'amis-ui';
 import React from 'react';
@@ -33,6 +34,7 @@ export interface CellProps extends ThemeProps {
   quickEditFormRef: any;
   onImageEnlarge?: any;
   translate: (key: string, ...args: Array<any>) => string;
+  testIdBuilder?: TestIdBuilder;
 }
 
 export default function Cell({
@@ -53,7 +55,8 @@ export default function Cell({
   popOverContainer,
   quickEditFormRef,
   onImageEnlarge,
-  translate: __
+  translate: __,
+  testIdBuilder
 }: CellProps) {
   if (column.name && item.rowSpans[column.name] === 0) {
     return null;
@@ -76,8 +79,8 @@ export default function Cell({
     return (
       <td
         style={style}
-        key={props.key}
         className={cx(column.pristine.className, stickyClassName)}
+        {...testIdBuilder?.getTestId()}
       >
         <Checkbox
           classPrefix={ns}
@@ -86,6 +89,7 @@ export default function Cell({
           checked={item.checked || item.partial}
           disabled={item.checkdisable || !item.checkable}
           onChange={onCheckboxChange}
+          testIdBuilder={testIdBuilder?.getChild('chekbx')}
         />
       </td>
     );
@@ -93,10 +97,10 @@ export default function Cell({
     return (
       <td
         style={style}
-        key={props.key}
         className={cx(column.pristine.className, stickyClassName, {
           'is-dragDisabled': !item.draggable
         })}
+        {...testIdBuilder?.getChild('drag').getTestId()}
       >
         {item.draggable ? <Icon icon="drag" className="icon" /> : null}
       </td>
@@ -105,7 +109,6 @@ export default function Cell({
     return (
       <td
         style={style}
-        key={props.key}
         className={cx(column.pristine.className, stickyClassName)}
       >
         {item.expandable ? (
@@ -114,6 +117,9 @@ export default function Cell({
             // data-tooltip="展开/收起"
             // data-position="top"
             onClick={item.toggleExpanded}
+            {...testIdBuilder
+              ?.getChild(item.expanded ? 'fold' : 'expand')
+              .getTestId()}
           >
             <Icon icon="right-arrow-bold" className="icon" />
           </a>
@@ -145,6 +151,7 @@ export default function Cell({
             key="retryBtn"
             onClick={item.resetDefered}
             data-tooltip={__('Options.retry', {reason: item.error})}
+            {...testIdBuilder?.getChild('retry').getTestId()}
           >
             <Icon icon="retry" className="icon" />
           </a>
@@ -155,6 +162,9 @@ export default function Cell({
             // data-tooltip="展开/收起"
             // data-position="top"
             onClick={item.toggleExpanded}
+            {...testIdBuilder
+              ?.getChild(item.expanded ? 'fold' : 'expand')
+              .getTestId()}
           >
             <Icon icon="right-arrow-bold" className="icon" />
           </a>
@@ -177,6 +187,7 @@ export default function Cell({
           draggable
           onDragStart={onDragStart}
           className={cx('Table-dragBtn')}
+          {...testIdBuilder?.getChild('drag').getTestId()}
         >
           <Icon icon="drag" className="icon" />
         </a>
@@ -214,12 +225,16 @@ export default function Cell({
     loading: column.type === 'operation' ? false : props.loading,
     btnDisabled: store.dragging,
     data: data,
-    value: column.name
-      ? resolveVariable(
-          column.name,
-          finalCanAccessSuperData ? item.locals : item.data
-        )
-      : column.value,
+
+    // 不要下发 value，组件基本上都会自己取
+    // 如果下发了表单项会认为是 controlled value
+    // 就不会去跑 extraName 之类的逻辑了
+    // value: column.name
+    //   ? resolveVariable(
+    //       column.name,
+    //       finalCanAccessSuperData ? item.locals : item.data
+    //     )
+    //   : column.value,
     popOverContainer: popOverContainer,
     rowSpan: item.rowSpans[column.name as string],
     quickEditFormRef: quickEditFormRef,
@@ -239,7 +254,8 @@ export default function Cell({
       column.pristine.className,
       stickyClassName,
       addtionalClassName
-    )
+    ),
+    testIdBuilder: testIdBuilder?.getChild(column.name || column.value)
   };
   delete subProps.label;
 

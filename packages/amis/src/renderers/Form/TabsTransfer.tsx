@@ -121,7 +121,7 @@ export class BaseTabsTransferRenderer<
       }
     } else if (term) {
       return filterTree(
-        options,
+        option.children || options,
         (option: Option, key: number, level: number, paths: Array<Option>) => {
           return !!(
             (Array.isArray(option.children) && option.children.length) ||
@@ -307,7 +307,9 @@ export class TabsTransferRenderer extends BaseTabsTransferRenderer<TabsTransferP
       valueTpl,
       menuTpl,
       data,
-      mobileUI
+      mobileUI,
+      initiallyOpen = true,
+      testIdBuilder
     } = this.props;
 
     return (
@@ -341,6 +343,8 @@ export class TabsTransferRenderer extends BaseTabsTransferRenderer<TabsTransferP
           valueField={valueField}
           ctx={data}
           mobileUI={mobileUI}
+          initiallyOpen={initiallyOpen}
+          testIdBuilder={testIdBuilder}
         />
 
         <Spinner

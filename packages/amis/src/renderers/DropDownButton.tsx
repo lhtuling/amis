@@ -235,8 +235,12 @@ export default class DropDownButton extends React.Component<
         isOpened: false
       });
     }, 200);
-    // PopOver hide会直接调用close方法
-    e && e.preventDefault();
+
+    // 如果是下拉菜单，并且是下载链接，则不阻止默认事件
+    if (!(e?.target as any)?.getAttribute?.('download')) {
+      // PopOver hide会直接调用close方法
+      e && e.preventDefault();
+    }
   }
 
   keepOpen() {
@@ -249,7 +253,13 @@ export default class DropDownButton extends React.Component<
     button: DropdownButton,
     index: number | string
   ): React.ReactNode {
-    const {render, classnames: cx, data, ignoreConfirm} = this.props;
+    const {
+      render,
+      classnames: cx,
+      data,
+      ignoreConfirm,
+      testIdBuilder
+    } = this.props;
     index = typeof index === 'number' ? index.toString() : index;
 
     if (typeof button !== 'string' && Array.isArray(button?.children)) {
@@ -297,7 +307,12 @@ export default class DropDownButton extends React.Component<
             {
               type: 'button',
               ...(button as any),
-              className: ''
+              className: '',
+              // 防止dropdown中button没有 testid或者id
+              testIdBuilder: testIdBuilder?.getChild(
+                button.label || index,
+                data
+              )
             },
             {
               isMenuItem: true,
@@ -417,7 +432,8 @@ export default class DropDownButton extends React.Component<
       trigger,
       data,
       hideCaret,
-      env
+      env,
+      testIdBuilder
     } = this.props;
 
     return (
@@ -448,6 +464,7 @@ export default class DropDownButton extends React.Component<
           <button
             onClick={this.toogle}
             disabled={disabled || btnDisabled}
+            {...testIdBuilder?.getTestId(data)}
             className={cx(
               'Button',
               btnClassName,

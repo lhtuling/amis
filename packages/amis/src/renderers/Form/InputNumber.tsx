@@ -7,7 +7,8 @@ import {
   resolveEventData,
   CustomStyle,
   formatInputThemeCss,
-  setThemeClassName
+  setThemeClassName,
+  TestIdBuilder
 } from 'amis-core';
 import cx from 'classnames';
 import {NumberInput, Select} from 'amis-ui';
@@ -158,6 +159,8 @@ export interface NumberProps extends FormControlProps {
    * 是否在清空内容时从数据域中删除该表单项对应的值
    */
   clearValueOnEmpty?: boolean;
+
+  testIdBuilder?: TestIdBuilder;
 }
 
 interface NumberState {
@@ -445,7 +448,9 @@ export default class NumberControl extends React.Component<
       themeCss,
       inputControlClassName,
       id,
-      env
+      env,
+      name,
+      testIdBuilder
     } = this.props;
     const {unit} = this.state;
     const finalPrecision = this.filterNum(precision);
@@ -486,15 +491,22 @@ export default class NumberControl extends React.Component<
         )}
       >
         <NumberInput
+          name={name}
           inputControlClassName={cx(
             inputControlClassName,
-            setThemeClassName('inputControlClassName', id, themeCss || css),
-            setThemeClassName(
-              'inputControlClassName',
+            setThemeClassName({
+              ...this.props,
+              name: 'inputControlClassName',
               id,
-              themeCss || css,
-              'inner'
-            )
+              themeCss: themeCss || css
+            }),
+            setThemeClassName({
+              ...this.props,
+              name: 'inputControlClassName',
+              id,
+              themeCss: themeCss || css,
+              extra: 'inner'
+            })
           )}
           inputRef={this.inputRef}
           value={finalValue}
@@ -517,6 +529,7 @@ export default class NumberControl extends React.Component<
           displayMode={displayMode}
           big={big}
           clearValueOnEmpty={clearValueOnEmpty}
+          testIdBuilder={testIdBuilder}
         />
         {Array.isArray(unitOptions) && unitOptions.length !== 0 ? (
           unitOptions.length > 1 ? (
@@ -543,6 +556,7 @@ export default class NumberControl extends React.Component<
           )
         ) : null}
         <CustomStyle
+          {...this.props}
           config={{
             themeCss: themeCss || css,
             classNames: [
@@ -563,6 +577,7 @@ export default class NumberControl extends React.Component<
           env={env}
         />
         <CustomStyle
+          {...this.props}
           config={{
             themeCss: formatInputThemeCss(themeCss || css),
             classNames: [

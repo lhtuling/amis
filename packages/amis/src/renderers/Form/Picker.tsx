@@ -32,6 +32,7 @@ import intersectionWith from 'lodash/intersectionWith';
 import type {TooltipWrapperSchema} from '../TooltipWrapper';
 import type {Option} from 'amis-core';
 import {supportStatic} from './StaticHoc';
+import {reaction} from 'mobx';
 
 /**
  * Picker
@@ -172,9 +173,36 @@ export default class PickerControl extends React.PureComponent<
   };
 
   input: React.RefObject<HTMLInputElement> = React.createRef();
+  toDispose: Array<() => void> = [];
+  mounted = false;
 
-  componentDidMount() {
-    this.fetchOptions();
+  constructor(props: PickerProps) {
+    super(props);
+
+    const {formInited, addHook, formItem} = props;
+
+    const onIninted = async () => {
+      await this.fetchOptions();
+
+      this.mounted &&
+        this.toDispose.push(
+          reaction(
+            () => JSON.stringify(formItem?.tmpValue),
+            () => this.fetchOptions()
+          )
+        );
+    };
+
+    formItem &&
+      this.toDispose.push(
+        formInited || !addHook
+          ? formItem.addInitHook(onIninted)
+          : addHook(onIninted, 'init')
+      );
+  }
+
+  componentDidMount(): void {
+    this.mounted = true;
   }
 
   componentDidUpdate(prevProps: PickerProps) {
@@ -186,17 +214,20 @@ export default class PickerControl extends React.PureComponent<
         schema: this.buildSchema(props)
       });
     } else if (
-      JSON.stringify(props.value) !== JSON.stringify(prevProps.value)
-    ) {
-      this.fetchOptions();
-    } else if (
       isApiOutdated(prevProps.source, props.source, prevProps.data, props.data)
     ) {
-      this.fetchOptions();
+      props.formItem?.inited && this.fetchOptions();
     }
   }
 
-  fetchOptions() {
+  componentWillUnmount(): void {
+    this.toDispose.forEach(fn => fn());
+    this.toDispose = [];
+    this.mounted = false;
+  }
+
+  @autobind
+  fetchOptions(): any {
     const {value, formItem, valueField, labelField, source, data} = this.props;
     let selectedOptions: any;
 
@@ -221,7 +252,7 @@ export default class PickerControl extends React.PureComponent<
     if (isPureVariable(source)) {
       formItem.setOptions(resolveVariableAndFilter(source, data, '| raw'));
     } else if (isEffectiveApi(source, ctx)) {
-      formItem.loadOptions(source, ctx, {
+      return formItem.loadOptions(source, ctx, {
         autoAppend: true
       });
     }
@@ -451,6 +482,44 @@ export default class PickerControl extends React.PureComponent<
     return merge(PickerControl.defaultProps.overflowConfig, overflowConfig);
   }
 
+  @autobind
+  handleSelect(selectedItems: Array<any>, unSelectedItems: Array<any>) {
+    const {selectedOptions, valueField} = this.props;
+    // 选择行后，crud 会给出连续多次事件，且selectedItems会变化，会导致初始化和点击无效
+    // 过滤掉一些无用事件，否则会导致 value 错误
+    if (
+      !Array.isArray(selectedItems) ||
+      !Array.isArray(unSelectedItems) ||
+      (!selectedItems.length && !unSelectedItems.length)
+    ) {
+      return;
+    }
+
+    // 取交集，判断是否是无效事件，需要考虑顺序问题
+    const intersections = intersectionWith(
+      selectedItems,
+      selectedOptions,
+      (a: any, b: any) => {
+        // 需要考虑没有配置 valueField，而且值里面又没有 value 字段的情况
+        const aValue = a[valueField || 'value'];
+        const bValue = b[valueField || 'value'];
+        return aValue || bValue
+          ? aValue === bValue
+          : // selectedOptions 中有 Options 自动添加的 value 字段，所以去掉后才能比较
+            isEqual(omit(a, 'value'), omit(b, 'value'));
+      }
+    );
+    if (
+      // 前后数量都一样说明是重复事件
+      intersections.length === selectedItems.length &&
+      intersections.length === selectedOptions.length
+    ) {
+      return;
+    }
+
+    this.handleChange(selectedItems);
+  }
+
   renderTag(item: Option, index: number) {
     const {
       classPrefix: ns,
@@ -470,7 +539,12 @@ export default class PickerControl extends React.PureComponent<
         key={index}
         className={cx(
           `${ns}Picker-value`,
-          setThemeClassName('pickValueWrapClassName', id, themeCss || css),
+          setThemeClassName({
+            ...this.props,
+            name: 'pickValueWrapClassName',
+            id,
+            themeCss: themeCss || css
+          }),
           {
             'is-disabled': disabled
           }
@@ -479,7 +553,12 @@ export default class PickerControl extends React.PureComponent<
         <span
           className={cx(
             `${ns}Picker-valueIcon`,
-            setThemeClassName('pickValueIconClassName', id, themeCss || css)
+            setThemeClassName({
+              ...this.props,
+              name: 'pickValueIconClassName',
+              id,
+              themeCss: themeCss || css
+            })
           )}
           onClick={e => {
             e.stopPropagation();
@@ -491,7 +570,12 @@ export default class PickerControl extends React.PureComponent<
         <span
           className={cx(
             `${ns}Picker-valueLabel`,
-            setThemeClassName('pickFontClassName', id, themeCss || css)
+            setThemeClassName({
+              ...this.props,
+              name: 'pickFontClassName',
+              id,
+              themeCss: themeCss || css
+            })
           )}
           onClick={e => {
             e.stopPropagation();
@@ -584,11 +668,12 @@ export default class PickerControl extends React.PureComponent<
                   })}
                 >
                   <span
-                    className={`${ns}Picker-valueLabel ${setThemeClassName(
-                      'pickFontClassName',
+                    className={`${ns}Picker-valueLabel ${setThemeClassName({
+                      ...this.props,
+                      name: 'pickFontClassName',
                       id,
-                      themeCss || css
-                    )}`}
+                      themeCss: themeCss || css
+                    })}`}
                   >
                     {item.label}
                   </span>
@@ -613,7 +698,8 @@ export default class PickerControl extends React.PureComponent<
       valueField,
       embed,
       source,
-      strictMode
+      strictMode,
+      testIdBuilder
     } = this.props;
     const {maxTagCount, overflowTagPopoverInCRUD, displayPosition} =
       this.getOverflowConfig();
@@ -625,43 +711,8 @@ export default class PickerControl extends React.PureComponent<
       options: source ? [] : options,
       multiple,
       strictMode,
-      onSelect: embed
-        ? (selectedItems: Array<any>, unSelectedItems: Array<any>) => {
-            // 选择行后，crud 会给出连续多次事件，且selectedItems会变化，会导致初始化和点击无效
-            // 过滤掉一些无用事件，否则会导致 value 错误
-            if (
-              !Array.isArray(selectedItems) ||
-              !Array.isArray(unSelectedItems) ||
-              (!selectedItems.length && !unSelectedItems.length)
-            ) {
-              return;
-            }
-
-            // 取交集，判断是否是无效事件，需要考虑顺序问题
-            const intersections = intersectionWith(
-              selectedItems,
-              selectedOptions,
-              (a: any, b: any) => {
-                // 需要考虑没有配置 valueField，而且值里面又没有 value 字段的情况
-                const aValue = a[valueField || 'value'];
-                const bValue = b[valueField || 'value'];
-                return aValue || bValue
-                  ? aValue === bValue
-                  : // selectedOptions 中有 Options 自动添加的 value 字段，所以去掉后才能比较
-                    isEqual(omit(a, 'value'), omit(b, 'value'));
-              }
-            );
-            if (
-              // 前后数量都一样说明是重复事件
-              intersections.length === selectedItems.length &&
-              intersections.length === selectedOptions.length
-            ) {
-              return;
-            }
-
-            this.handleChange(selectedItems);
-          }
-        : undefined,
+      onSelect: embed ? this.handleSelect : undefined,
+      testIdBuilder: testIdBuilder?.getChild('body-schema'),
       ref: this.crudRef,
       popOverContainer,
       ...(embed ||
@@ -696,7 +747,8 @@ export default class PickerControl extends React.PureComponent<
       themeCss,
       css,
       id,
-      classPrefix: ns
+      classPrefix: ns,
+      testIdBuilder
     } = this.props;
     return (
       <div className={cx(`PickerControl`, {'is-mobile': mobileUI}, className)}>
@@ -717,12 +769,18 @@ export default class PickerControl extends React.PureComponent<
               onClick={this.handleClick}
               className={cx(
                 'Picker-input',
-                setThemeClassName('pickControlClassName', id, themeCss || css),
-                setThemeClassName(
-                  'pickControlDisabledClassName',
+                setThemeClassName({
+                  ...this.props,
+                  name: 'pickControlClassName',
                   id,
-                  themeCss || css
-                )
+                  themeCss: themeCss || css
+                }),
+                setThemeClassName({
+                  ...this.props,
+                  name: 'pickControlDisabledClassName',
+                  id,
+                  themeCss: themeCss || css
+                })
               )}
             >
               {!selectedOptions.length && placeholder ? (
@@ -731,7 +789,10 @@ export default class PickerControl extends React.PureComponent<
                 </div>
               ) : null}
 
-              <div className={cx('Picker-valueWrap')}>
+              <div
+                className={cx('Picker-valueWrap')}
+                {...testIdBuilder?.getTestId()}
+              >
                 {this.renderValues()}
 
                 <input
@@ -751,12 +812,21 @@ export default class PickerControl extends React.PureComponent<
                 </a>
               ) : null}
 
-              <span onClick={this.open} className={cx('Picker-btn')}>
+              <span
+                onClick={this.open}
+                className={cx('Picker-btn')}
+                {...testIdBuilder?.getChild('picker-open-btn').getTestId()}
+              >
                 <Icon
                   icon="window-restore"
                   className={cx(
                     'icon',
-                    setThemeClassName('pickIconClassName', id, themeCss || css)
+                    setThemeClassName({
+                      ...this.props,
+                      name: 'pickIconClassName',
+                      id,
+                      themeCss: themeCss || css
+                    })
                   )}
                   iconContent="Picker-icon"
                 />
@@ -775,7 +845,8 @@ export default class PickerControl extends React.PureComponent<
                 className: modalClassName,
                 body: {
                   children: this.renderBody
-                }
+                },
+                testIdBuilder: testIdBuilder?.getChild('modal')
               },
               {
                 key: 'modal',
@@ -788,6 +859,7 @@ export default class PickerControl extends React.PureComponent<
           </div>
         )}
         <CustomStyle
+          {...this.props}
           config={{
             themeCss: themeCss || css,
             classNames: [
@@ -812,11 +884,12 @@ export default class PickerControl extends React.PureComponent<
                 key: 'pickControlDisabledClassName',
                 weights: {
                   default: {
-                    pre: `${ns}Picker.is-disabled> .${setThemeClassName(
-                      'pickControlDisabledClassName',
+                    pre: `${ns}Picker.is-disabled> .${setThemeClassName({
+                      ...this.props,
+                      name: 'pickControlDisabledClassName',
                       id,
-                      themeCss || css
-                    )}, `
+                      themeCss: themeCss || css
+                    })}, `
                   }
                 }
               },

@@ -41,6 +41,11 @@ export interface DrawerSchema extends BaseSchema {
   type: 'drawer';
 
   /**
+   * 弹窗参数说明，值格式为 JSONSchema。
+   */
+  inputParams?: any;
+
+  /**
    * 默认不用填写，自动会创建确认和取消按钮。
    */
   actions?: Array<ActionSchema>;
@@ -142,13 +147,20 @@ export interface DrawerSchema extends BaseSchema {
    * 是否显示错误信息
    */
   showErrorMsg?: boolean;
+
+  /**
+   * 数据映射
+   */
+  data?: {
+    [propName: string]: any;
+  };
 }
 
 export type DrawerSchemaBase = Omit<DrawerSchema, 'type'>;
 
 export interface DrawerProps
   extends RendererProps,
-    Omit<DrawerSchema, 'className'>,
+    Omit<DrawerSchema, 'className' | 'data'>,
     SpinnerExtraProps {
   onClose: () => void;
   onConfirm: (
@@ -257,7 +269,7 @@ export default class Drawer extends React.Component<DrawerProps> {
   }
 
   buildActions(): Array<ActionSchema> {
-    const {actions, confirm, translate: __} = this.props;
+    const {actions, confirm, translate: __, testIdBuilder} = this.props;
 
     if (typeof actions !== 'undefined') {
       return actions;
@@ -266,6 +278,7 @@ export default class Drawer extends React.Component<DrawerProps> {
     let ret: Array<ActionSchema> = [];
     ret.push({
       type: 'button',
+      testIdBuilder: testIdBuilder?.getChild('cancel'),
       actionType: 'close',
       label: __('cancel')
     });
@@ -274,6 +287,7 @@ export default class Drawer extends React.Component<DrawerProps> {
       ret.push({
         type: 'button',
         actionType: 'confirm',
+        testIdBuilder: testIdBuilder?.getChild('confirm'),
         label: __('confirm'),
         primary: true
       });
@@ -513,7 +527,12 @@ export default class Drawer extends React.Component<DrawerProps> {
         className={cx(
           'Drawer-footer',
           footerClassName,
-          setThemeClassName('drawerFooterClassName', id, themeCss)
+          setThemeClassName({
+            ...this.props,
+            name: 'drawerFooterClassName',
+            id,
+            themeCss
+          })
         )}
       >
         {store.loading || store.error ? (
@@ -539,11 +558,14 @@ export default class Drawer extends React.Component<DrawerProps> {
   openFeedback(dialog: any, ctx: any) {
     return new Promise(resolve => {
       const {store} = this.props;
-      store.setCurrentAction({
-        type: 'button',
-        actionType: 'dialog',
-        dialog: dialog
-      });
+      store.setCurrentAction(
+        {
+          type: 'button',
+          actionType: 'dialog',
+          dialog: dialog
+        },
+        this.props.resolveDefinitions
+      );
       store.openDialog(
         ctx,
         undefined,
@@ -600,12 +622,18 @@ export default class Drawer extends React.Component<DrawerProps> {
         classPrefix={ns}
         className={className}
         style={style}
-        drawerClassName={setThemeClassName('drawerClassName', id, themeCss)}
-        drawerMaskClassName={setThemeClassName(
-          'drawerMaskClassName',
+        drawerClassName={setThemeClassName({
+          ...this.props,
+          name: 'drawerClassName',
           id,
           themeCss
-        )}
+        })}
+        drawerMaskClassName={setThemeClassName({
+          ...this.props,
+          name: 'drawerMaskClassName',
+          id,
+          themeCss
+        })}
         size={size}
         onHide={this.handleSelfClose}
         disabled={store.loading}
@@ -623,44 +651,61 @@ export default class Drawer extends React.Component<DrawerProps> {
         }
         container={drawerContainer ? drawerContainer : env?.getModalContainer}
       >
-        <div
-          className={cx(
-            'Drawer-header',
-            headerClassName,
-            setThemeClassName('drawerHeaderClassName', id, themeCss)
-          )}
-        >
-          {title ? (
-            <div
-              className={cx(
-                'Drawer-title',
-                setThemeClassName('drawerTitleClassName', id, themeCss)
-              )}
-            >
-              {render('title', title, {
-                data: store.formData,
-                onConfirm: this.handleDrawerConfirm,
-                onClose: this.handleDrawerClose,
-                onAction: this.handleAction
-              })}
-            </div>
-          ) : null}
-          {header
-            ? render('header', header, {
-                data: store.formData,
-                onConfirm: this.handleDrawerConfirm,
-                onClose: this.handleDrawerClose,
-                onAction: this.handleAction
+        {title || header ? (
+          <div
+            className={cx(
+              'Drawer-header',
+              headerClassName,
+              setThemeClassName({
+                ...this.props,
+                name: 'drawerHeaderClassName',
+                id,
+                themeCss
               })
-            : null}
-        </div>
+            )}
+          >
+            {title ? (
+              <div
+                className={cx(
+                  'Drawer-title',
+                  setThemeClassName({
+                    ...this.props,
+                    name: 'drawerTitleClassName',
+                    id,
+                    themeCss
+                  })
+                )}
+              >
+                {render('title', title, {
+                  data: store.formData,
+                  onConfirm: this.handleDrawerConfirm,
+                  onClose: this.handleDrawerClose,
+                  onAction: this.handleAction
+                })}
+              </div>
+            ) : null}
+            {header
+              ? render('header', header, {
+                  data: store.formData,
+                  onConfirm: this.handleDrawerConfirm,
+                  onClose: this.handleDrawerClose,
+                  onAction: this.handleAction
+                })
+              : null}
+          </div>
+        ) : null}
 
         {!store.entered ? (
           <div
             className={cx(
               'Drawer-body',
               bodyClassName,
-              setThemeClassName('drawerBodyClassName', id, themeCss)
+              setThemeClassName({
+                ...this.props,
+                name: 'drawerBodyClassName',
+                id,
+                themeCss
+              })
             )}
           >
             <Spinner overlay show size="lg" loadingConfig={loadingConfig} />
@@ -671,12 +716,18 @@ export default class Drawer extends React.Component<DrawerProps> {
             className={cx(
               'Drawer-body',
               bodyClassName,
-              setThemeClassName('drawerBodyClassName', id, themeCss)
+              setThemeClassName({
+                ...this.props,
+                name: 'drawerBodyClassName',
+                id,
+                themeCss
+              })
             )}
             role="dialog-body"
           >
             {this.renderBody(body, 'body')}
             <CustomStyle
+              {...this.props}
               config={{
                 themeCss: themeCss,
                 classNames: [
@@ -898,7 +949,7 @@ export class DrawerRenderer extends Drawer {
       if (rendererEvent?.prevented) {
         return;
       }
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       onClose();
       if (action.close) {
         action.close === true
@@ -913,13 +964,13 @@ export class DrawerRenderer extends Drawer {
       if (rendererEvent?.prevented) {
         return;
       }
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       this.tryChildrenToHandle(action, data) || onClose();
     } else if (action.actionType === 'drawer') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       store.openDrawer(data);
     } else if (action.actionType === 'dialog') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       store.openDialog(
         data,
         undefined,
@@ -927,7 +978,7 @@ export class DrawerRenderer extends Drawer {
         delegate || (this.context as any)
       );
     } else if (action.actionType === 'reload') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       action.target && scoped.reload(action.target, data);
 
       if (action.close) {
@@ -939,7 +990,7 @@ export class DrawerRenderer extends Drawer {
       // 如果有 from 了，说明是从子节点冒泡上来的，那就不再走让子节点处理的逻辑。
       // do nothing
     } else if (action.actionType === 'ajax') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       store
         .saveRemote(action.api as string, data, {
           successMessage: action.messages && action.messages.success,

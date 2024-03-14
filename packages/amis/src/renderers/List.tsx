@@ -2,7 +2,11 @@ import React from 'react';
 import {findDOMNode} from 'react-dom';
 import Sortable from 'sortablejs';
 import omit from 'lodash/omit';
-import {filterClassNameObject} from 'amis-core';
+import {
+  evalExpressionWithConditionBuilder,
+  filterClassNameObject,
+  getPropValue
+} from 'amis-core';
 import {Button, Spinner, Checkbox, Icon, SpinnerExtraProps} from 'amis-ui';
 import {
   ListStore,
@@ -351,13 +355,14 @@ export default class List extends React.Component<ListProps, object> {
 
   static syncItems(store: IListStore, props: ListProps, prevProps?: ListProps) {
     const source = props.source;
-    const value = props.value || props.items;
+    const value = getPropValue(props, (props: ListProps) => props.items);
     let items: Array<object> = [];
     let updateItems = false;
 
     if (
       Array.isArray(value) &&
-      (!prevProps || (prevProps.value || prevProps.items) !== value)
+      (!prevProps ||
+        getPropValue(prevProps, (props: ListProps) => props.items) !== value)
     ) {
       items = value;
       updateItems = true;
@@ -622,7 +627,12 @@ export default class List extends React.Component<ListProps, object> {
 
           const parent = e.to as HTMLElement;
           if (e.oldIndex < parent.childNodes.length - 1) {
-            parent.insertBefore(e.item, parent.childNodes[e.oldIndex]);
+            parent.insertBefore(
+              e.item,
+              parent.childNodes[
+                e.oldIndex > e.newIndex ? e.oldIndex + 1 : e.oldIndex
+              ]
+            );
           } else {
             parent.appendChild(e.item);
           }
@@ -953,7 +963,8 @@ export default class List extends React.Component<ListProps, object> {
       checkOnItemClick,
       itemAction,
       classnames: cx,
-      translate: __
+      translate: __,
+      testIdBuilder
     } = this.props;
     const hasClickActions =
       onEvent &&
@@ -973,6 +984,7 @@ export default class List extends React.Component<ListProps, object> {
           'is-modified': item.modified,
           'is-moved': item.moved
         }),
+        testIdBuilder: testIdBuilder?.getChild(index),
         selectable: store.selectable,
         checkable: item.checkable,
         multiple,
@@ -1076,6 +1088,40 @@ export class ListRenderer extends List {
   body?: SchemaNode;
   actions?: Array<ActionObject>;
   onCheck: (item: IItem) => void;
+
+  async setData(
+    values: any,
+    replace?: boolean,
+    index?: number | string,
+    condition?: any
+  ) {
+    const {store} = this.props;
+
+    if (index !== undefined) {
+      let items = store.items;
+      const indexs = String(index).split(',');
+      indexs.forEach(i => {
+        const intIndex = Number(i);
+        items[intIndex]?.updateData(values);
+      });
+    } else if (condition !== undefined) {
+      let items = store.items;
+      const len = items.length;
+      for (let i = 0; i < len; i++) {
+        const item = items[i];
+        const isUpdate = await evalExpressionWithConditionBuilder(
+          condition,
+          item.data
+        );
+
+        if (isUpdate) {
+          item.updateData(values);
+        }
+      }
+    } else {
+      return store.updateData(values, undefined, replace);
+    }
+  }
 }
 
 export interface ListItemProps
@@ -1174,7 +1220,8 @@ export class ListItem extends React.Component<ListItemProps> {
       hideCheckToggler,
       checkOnItemClick,
       classnames: cx,
-      classPrefix: ns
+      classPrefix: ns,
+      testIdBuilder
     } = this.props;
 
     if (dragging) {
@@ -1193,6 +1240,7 @@ export class ListItem extends React.Component<ListItemProps> {
             checked={selected}
             onChange={this.handleCheck}
             inline
+            testIdBuilder={testIdBuilder?.getChild('checkbox')}
           />
         </div>
       );
@@ -1305,7 +1353,8 @@ export class ListItem extends React.Component<ListItemProps> {
                 'ListItem-fieldValue',
                 filterClassNameObject(field.className, data)
               ),
-              value: field.name ? resolveVariable(field.name, data) : undefined,
+              // 同 Cell 一样， 这里不要下发 value
+              // value: field.name ? resolveVariable(field.name, data) : undefined,
               onAction: this.handleAction,
               onQuickChange: this.handleQuickChange
             }

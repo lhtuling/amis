@@ -18,7 +18,8 @@ import {
   autobind,
   filterTree,
   findTree,
-  getTreeAncestors
+  getTreeAncestors,
+  TestIdBuilder
 } from 'amis-core';
 import {ClassNamesFn, themeable} from 'amis-core';
 
@@ -62,6 +63,8 @@ export interface MenuProps extends Omit<RcMenuProps, 'mode'> {
    * 导航项数据，支持树状结构
    */
   navigations: Array<NavigationItem>;
+
+  testIdBuilder?: TestIdBuilder;
 
   /**
    * 导航排列方式 stacked为true垂直 默认为false
@@ -540,8 +543,9 @@ export class Menu extends React.Component<MenuProps, MenuState> {
     disabled?: boolean;
     [propName: string]: any;
   }) {
-    const {classnames: cx, expandIcon} = this.props;
-
+    const navigations = this.state.navigations;
+    const {classnames: cx, expandIcon, testIdBuilder} = this.props;
+    const link = findTree(navigations, item => item.id === ctx.eventKey);
     return (
       <span
         key="expand-toggle"
@@ -550,6 +554,10 @@ export class Menu extends React.Component<MenuProps, MenuState> {
           this.handleToggleExpand(ctx);
           e.preventDefault();
         }}
+        {...testIdBuilder
+          ?.getChild(link?.link?.testid || ctx.eventKey)
+          .getChild('expand-toggle')
+          .getTestId()}
       >
         {!React.isValidElement(expandIcon) ? (
           <Icon
@@ -577,7 +585,8 @@ export class Menu extends React.Component<MenuProps, MenuState> {
       collapsed,
       overflowedIndicator,
       overflowMaxCount,
-      popupClassName
+      popupClassName,
+      testIdBuilder
     } = this.props;
 
     return list.map((item: NavigationItem, index: number) => {
@@ -613,6 +622,7 @@ export class Menu extends React.Component<MenuProps, MenuState> {
             badge={badge}
             renderLink={renderLink}
             depth={level || 1}
+            testIdBuilder={testIdBuilder?.getChild(link.testid || index)}
             popupClassName={popupClassName}
           >
             {this.renderMenuContent(item.children || [], item.depth + 1)}
@@ -634,6 +644,7 @@ export class Menu extends React.Component<MenuProps, MenuState> {
           renderLink={renderLink}
           badge={badge}
           data={data}
+          testIdBuilder={testIdBuilder?.getChild(link.testid || index)}
           depth={level || 1}
           order={index}
           overflowedIndicator={overflowedIndicator}

@@ -35,7 +35,7 @@ import type {
 } from 'amis-editor-core';
 import {normalizeApi} from 'amis-core';
 import isPlainObject from 'lodash/isPlainObject';
-import omit from 'lodash/omit';
+import findLastIndex from 'lodash/findLastIndex';
 
 interface ColumnItem {
   label: string;
@@ -53,68 +53,6 @@ const viewTypeToEditType = (type: string) => {
     ? 'select'
     : `input-${type}`;
 };
-
-// !ypf自用👇
-// todo 临时处理，后续需要优化 优化为自定义配置
-const igColumns = ['Id', 'id', 'CreateTime', 'UpdateTime', 'IsDeleted', 'Sort'];
-const igColumnsUpdate = ['CreateTime', 'UpdateTime', 'IsDeleted', 'Sort'];
-// 自动替换为中文名字
-const replaceLabel = (label: string) => {
-  if (label === 'Id') {
-    return 'ID';
-  } else if (label === 'CreateTime') {
-    return '创建时间';
-  } else if (label === 'UpdateTime') {
-    return '更新时间';
-  } else if (label === 'Remark') {
-    return '备注';
-  }
-
-  return label;
-};
-
-// 日期时间自动替换为date
-const replaceType = (key: string) => {
-  let type = 'text';
-  if (key === 'CreateTime') {
-    return 'date';
-  }
-  if (key === 'UpdateTime') {
-    return 'date';
-  }
-
-  return type;
-};
-
-// url自动替换为自用格式
-const replaceUrl = (data: any, api: string, typeName: string): any => {
-  // var api = data?.dialog?.body?.api ?? data.api;
-  const regex = /api\/(.+?)(\/|\?|#|$)/gim;
-  let match = regex.exec(api);
-  let apiModelName = '';
-  if (match) {
-    apiModelName = match[1];
-    if (typeName === 'create') {
-      return `post:/api/${apiModelName}/add`;
-    }
-    if (typeName === 'update') {
-      data.dialog.body.api = `post:/api/${apiModelName}/update`;
-    } else if (typeName === 'view') {
-      data.dialog.body.api = `post:/api/${apiModelName}/update`;
-    } else if (typeName === 'delete') {
-      data.api = `delete:/api/${apiModelName}/$Id`;
-    } else if (typeName === 'bulkDelete') {
-      data.api = `delete:/api/${apiModelName}/batch/$ids`;
-    } else if (typeName === 'bulkUpdate') {
-      data.dialog.body.api = `post:/api/${apiModelName}/bulk-Update`;
-    }
-    return data;
-  } else {
-    return data;
-  }
-};
-
-// !ypf自用👆
 
 export class CRUDPlugin extends BasePlugin {
   static id = 'CRUDPlugin';
@@ -432,6 +370,9 @@ export class CRUDPlugin extends BasePlugin {
       type: 'button',
       actionType: 'dialog',
       level: 'primary',
+      editorSetting: {
+        behavior: 'create'
+      },
       dialog: {
         title: '新增',
         body: {
@@ -446,6 +387,9 @@ export class CRUDPlugin extends BasePlugin {
       type: 'button',
       actionType: 'dialog',
       level: 'link',
+      editorSetting: {
+        behavior: 'update'
+      },
       dialog: {
         title: '编辑',
         body: {
@@ -460,6 +404,9 @@ export class CRUDPlugin extends BasePlugin {
       type: 'button',
       actionType: 'dialog',
       level: 'link',
+      editorSetting: {
+        behavior: 'view'
+      },
       dialog: {
         title: '查看详情',
         body: {
@@ -476,20 +423,29 @@ export class CRUDPlugin extends BasePlugin {
       level: 'link',
       className: 'text-danger',
       confirmText: '确定要删除？',
-      api: 'delete:/xxx/delete'
+      api: 'delete:/xxx/delete',
+      editorSetting: {
+        behavior: 'delete'
+      }
     },
     bulkDelete: {
       type: 'button',
       level: 'danger',
       label: '批量删除',
       actionType: 'ajax',
-      confirmText: '确定要批量删除吗？',
-      api: '/xxx/batch-delete'
+      confirmText: '确定要删除？',
+      api: '/xxx/batch-delete',
+      editorSetting: {
+        behavior: 'bulkDelete'
+      }
     },
     bulkUpdate: {
       type: 'button',
       label: '批量编辑',
       actionType: 'dialog',
+      editorSetting: {
+        behavior: 'bulkUpdate'
+      },
       dialog: {
         title: '批量编辑',
         size: 'md',
@@ -528,7 +484,6 @@ export class CRUDPlugin extends BasePlugin {
 
   get scaffoldForm(): ScaffoldForm {
     const i18nEnabled = getI18nEnabled();
-    var pid = getSchemaTpl('primaryField');
     return {
       title: '增删改查快速开始-CRUD',
       body: [
@@ -548,7 +503,6 @@ export class CRUDPlugin extends BasePlugin {
               2
             )
         }),
-        {...pid, value: 'Id'},
         {
           type: 'button',
           label: '格式校验并自动生成列配置',
@@ -566,12 +520,7 @@ export class CRUDPlugin extends BasePlugin {
                 api: data.api
               }).api;
             }
-
-            const response = await props.env.fetcher(
-              api,
-              data?.api?.data ?? {}
-            );
-
+            const response = await props.env.fetcher(api, data);
             const result = normalizeApiResponseData(response.data);
             let autoFillKeyValues: Array<any> = [];
             let items = result?.items ?? result?.rows;
@@ -587,27 +536,14 @@ export class CRUDPlugin extends BasePlugin {
             }
 
             if (Array.isArray(items)) {
-              // todo 临时处理，后续需要优化 优化为自定义配置
-              Object.keys(items[0])
-                .filter(key => key !== 'IsDeleted' && key !== 'Sort')
-                .forEach((key: any) => {
-                  const label = replaceLabel(key);
-                  let type = replaceType(key);
-                  if (key === 'Id') {
-                    autoFillKeyValues.unshift({
-                      label: label,
-                      type: type,
-                      name: key
-                    });
-                  } else {
-                    autoFillKeyValues.push({
-                      label: label,
-                      type: type,
-                      name: key
-                    });
-                  }
+              Object.keys(items[0]).forEach((key: any) => {
+                const value = items[0][key];
+                autoFillKeyValues.push({
+                  label: key,
+                  type: 'text',
+                  name: key
                 });
-
+              });
               props.formStore.setValues({
                 columns: autoFillKeyValues
               });
@@ -625,7 +561,7 @@ export class CRUDPlugin extends BasePlugin {
           }
         },
         {
-          name: 'features',
+          name: '__features',
           label: '启用功能',
           type: 'checkboxes',
           joinValues: false,
@@ -657,10 +593,10 @@ export class CRUDPlugin extends BasePlugin {
               type: 'input-number',
               label: '每列显示几个字段',
               value: 3,
-              name: 'filterColumnCount'
+              name: '__filterColumnCount'
             }
           ],
-          visibleOn: "${features && features.includes('filter')}"
+          visibleOn: "${__features && CONTAINS(__features, 'filter')}"
         },
         {
           name: 'columns',
@@ -723,61 +659,137 @@ export class CRUDPlugin extends BasePlugin {
           ]
         }
       ],
+      pipeIn: (value: any) => {
+        const __features = [];
+        // 收集 filter
+        if (value.filter) {
+          __features.push('filter');
+        }
+
+        let actions = [];
+        if (value.mode === 'cards' && Array.isArray(value.card?.body)) {
+          actions = Array.isArray(value.card.actions)
+            ? value.card.actions.concat()
+            : [];
+        } else if (
+          value.mode === 'list' &&
+          Array.isArray(value.listItem?.body)
+        ) {
+          actions = Array.isArray(value.listItem.actions)
+            ? value.listItem.actions.concat()
+            : [];
+        } else if (Array.isArray(value.columns)) {
+          actions =
+            value.columns
+              .find((value: any) => value?.type === 'operation')
+              ?.buttons?.concat() || [];
+        }
+
+        // 收集 列操作
+        const operBtns: Array<string> = ['update', 'view', 'delete'];
+        actions.forEach((btn: any) => {
+          if (operBtns.includes(btn.editorSetting?.behavior || '')) {
+            __features.push(btn.editorSetting?.behavior);
+          }
+        });
+
+        // 收集批量操作
+        if (Array.isArray(value.bulkActions)) {
+          value.bulkActions.forEach((item: any) => {
+            if (item.editorSetting?.behavior) {
+              __features.push(item.editorSetting?.behavior);
+            }
+          });
+        }
+        // 收集新增
+        if (
+          Array.isArray(value.headerToolbar) &&
+          value.headerToolbar.some(
+            (item: any) => item.editorSetting?.behavior === 'create'
+          )
+        ) {
+          __features.push('create');
+        }
+        return {
+          ...value,
+          ...(value.mode !== 'table'
+            ? {
+                columns:
+                  value.columns ||
+                  this.transformByMode({
+                    from: value.mode,
+                    to: 'table',
+                    schema: value
+                  })
+              }
+            : {}),
+          __filterColumnCount: value?.filter?.columnCount || 3,
+          __features: __features,
+          __LastFeatures: [...__features]
+        };
+      },
       pipeOut: (value: any) => {
         let valueSchema = cloneDeep(value);
-        // 查看/删除 操作，可选择是否使用接口返回值预填充
-        const features: Array<any> = valueSchema.features;
-        const oper: {
-          type: 'operation';
-          label?: string;
-          buttons: Array<ActionSchema>;
-        } = {
-          type: 'operation',
-          label: '操作',
-          buttons: []
-        };
-        const itemBtns: Array<string> = ['update', 'view', 'delete'];
-        const hasFeatures = get(features, 'length');
-
-        valueSchema.bulkActions = [];
         /** 统一api格式 */
         valueSchema.api =
           typeof valueSchema.api === 'string'
             ? normalizeApi(valueSchema.api)
             : valueSchema.api;
-        hasFeatures &&
-          features.forEach((item: string) => {
-            if (itemBtns.includes(item)) {
-              let schema;
 
+        const features: string[] = valueSchema.__features;
+        const lastFeatures: string[] = valueSchema.__LastFeatures;
+        const willAddedList = features.filter(
+          item => !lastFeatures.includes(item)
+        );
+        const willRemoveList = lastFeatures.filter(
+          item => !features.includes(item)
+        );
+
+        const operButtons: any[] = [];
+        const operBtns: string[] = ['update', 'view', 'delete'];
+
+        if (!valueSchema.bulkActions) {
+          valueSchema.bulkActions = [];
+        } else {
+          // 删除 未勾选的批量操作
+          valueSchema.bulkActions = valueSchema.bulkActions.filter(
+            (item: any) =>
+              !willRemoveList.includes(item.editorSetting?.behavior)
+          );
+        }
+
+        // 删除 未勾选的 filter
+        if (willRemoveList.includes('filter') && valueSchema.filter) {
+          delete valueSchema.filter;
+        }
+
+        // 删除 未勾选的 新增
+        if (
+          willRemoveList.includes('create') &&
+          Array.isArray(valueSchema.headerToolbar)
+        ) {
+          valueSchema.headerToolbar = valueSchema.headerToolbar.filter(
+            (item: any) => item.editorSetting?.behavior !== 'create'
+          );
+        }
+
+        willAddedList.length &&
+          willAddedList.forEach((item: string) => {
+            if (operBtns.includes(item)) {
+              // 列操作按钮
+              let schema;
               if (item === 'update') {
-                schema = replaceUrl(
-                  cloneDeep(this.btnSchemas.update),
-                  value.api,
-                  item
-                );
-                const updateColumns = value.columns.filter(
-                  (item: any) => !igColumnsUpdate.includes(item.name)
-                );
-                schema.dialog.body.body = updateColumns
+                schema = cloneDeep(this.btnSchemas.update);
+                schema.dialog.body.body = value.columns
                   .filter(
                     ({type}: any) => type !== 'progress' && type !== 'operation'
                   )
-                  .map(({type, name, ...rest}: any) => ({
+                  .map(({type, ...rest}: any) => ({
                     ...rest,
-                    name: name,
-                    type:
-                      name == 'Id' || name == 'id'
-                        ? 'hidden'
-                        : viewTypeToEditType(type)
+                    type: viewTypeToEditType(type)
                   }));
-                debugger;
               } else if (item === 'view') {
-                schema = replaceUrl(
-                  cloneDeep(this.btnSchemas.view),
-                  value.api,
-                  item
-                );
+                schema = cloneDeep(this.btnSchemas.view);
                 schema.dialog.body.body = value.columns.map(
                   ({type, ...rest}: any) => ({
                     ...rest,
@@ -785,66 +797,60 @@ export class CRUDPlugin extends BasePlugin {
                   })
                 );
               } else if (item === 'delete') {
-                schema = replaceUrl(
-                  cloneDeep(this.btnSchemas.delete),
-                  value.api,
-                  item
-                );
+                schema = cloneDeep(this.btnSchemas.delete);
+                schema.api = valueSchema.api?.method?.match(/^(post|delete)$/i)
+                  ? valueSchema.api
+                  : {...valueSchema.api, method: 'post'};
               }
-
-              // 添加操作按钮
-              this.addItem(oper.buttons, schema);
+              schema && operButtons.push(schema);
             } else {
               // 批量操作
               if (item === 'bulkUpdate') {
                 this.addItem(
                   valueSchema.bulkActions,
-                  replaceUrl(
-                    cloneDeep(this.btnSchemas.bulkUpdate),
-                    value.api,
-                    item
-                  )
+                  cloneDeep(this.btnSchemas.bulkUpdate)
                 );
               }
 
               if (item === 'bulkDelete') {
                 this.addItem(
                   valueSchema.bulkActions,
-                  replaceUrl(
-                    cloneDeep(this.btnSchemas.bulkDelete),
-                    value.api,
-                    item
-                  )
+                  cloneDeep(this.btnSchemas.bulkDelete)
                 );
               }
 
               // 创建
               if (item === 'create') {
                 const createSchemaBase = this.btnSchemas.create;
-                const createColumns = valueSchema.columns.filter(
-                  (item: any) => !igColumns.includes(item.name)
-                );
                 createSchemaBase.dialog.body = {
                   type: 'form',
-                  api: replaceUrl(null, value.api, item),
-                  body: createColumns.map((column: ColumnItem) => {
-                    const type = column.type;
-                    return {
-                      type: viewTypeToEditType(type),
-                      name: column.name,
-                      label: column.label
-                    };
-                  })
+                  api: valueSchema.api?.method?.match(/^(post|put)$/i)
+                    ? valueSchema.api
+                    : {...valueSchema.api, method: 'post'},
+                  body: valueSchema.columns
+                    .filter(
+                      ({type}: any) =>
+                        type !== 'progress' && type !== 'operation'
+                    )
+                    .map((column: ColumnItem) => {
+                      const type = column.type;
+                      return {
+                        type: viewTypeToEditType(type),
+                        name: column.name,
+                        label: column.label
+                      };
+                    })
                 };
                 valueSchema.headerToolbar = [createSchemaBase, 'bulkActions'];
               }
+              // 查询
               let keysFilter = Object.keys(valueSchema.filter || {});
               if (item === 'filter' && !keysFilter.length) {
                 if (valueSchema.filterEnabledList) {
                   valueSchema.filter = {
                     title: '查询条件'
                   };
-                  valueSchema.filter.columnCount = value.filterColumnCount;
+                  valueSchema.filter.columnCount = value.__filterColumnCount;
                   valueSchema.filter.mode = 'horizontal';
                   valueSchema.filter.body = valueSchema.filterEnabledList.map(
                     (item: any) => {
@@ -859,21 +865,54 @@ export class CRUDPlugin extends BasePlugin {
               }
             }
           });
-        const hasOperate = valueSchema.columns.find(
+
+        // 处理列操作按钮
+        const lastIndex = findLastIndex(
+          value.columns || [],
           (item: any) => item.type === 'operation'
         );
-        hasFeatures && !hasOperate && valueSchema.columns.push(oper);
-
-        // todo  针对特定属性进行修改
-        valueSchema.columns.forEach((column: any) => {
-          if (column.name === 'UpdateTime') {
-            column.type = 'tpl';
-            column.tpl =
-              "<div><%=data.UpdateTime == '0001-01-01 00:00:00' ? '-' : data.UpdateTime%></div>";
+        if (lastIndex === -1) {
+          if (operButtons.length) {
+            valueSchema.columns.push({
+              type: 'operation',
+              label: '操作',
+              buttons: operButtons
+            });
           }
-        });
+        } else {
+          const operColumn = valueSchema.columns[lastIndex];
+          operColumn.buttons = (operColumn.buttons || [])
+            .filter(
+              (btn: any) =>
+                !willRemoveList.includes(btn.editorSetting?.behavior)
+            )
+            .concat(operButtons);
+        }
 
-        return valueSchema;
+        const {card, columns, listItem, ...rest} = valueSchema;
+
+        return {
+          ...rest,
+          ...(valueSchema.mode === 'cards'
+            ? {
+                card: this.transformByMode({
+                  from: 'table',
+                  to: 'cards',
+                  schema: valueSchema
+                })
+              }
+            : valueSchema.mode === 'list'
+            ? {
+                listItem: this.transformByMode({
+                  from: 'table',
+                  to: 'list',
+                  schema: valueSchema
+                })
+              }
+            : columns
+            ? {columns}
+            : {})
+        };
       },
       canRebuild: true
     };

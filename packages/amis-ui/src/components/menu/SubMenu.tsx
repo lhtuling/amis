@@ -7,7 +7,14 @@
 import React from 'react';
 import pick from 'lodash/pick';
 import {SubMenu as RcSubMenu, SubMenuProps as RcSubMenuProps} from 'rc-menu';
-import {ClassNamesFn, themeable, autobind, createObject} from 'amis-core';
+import {
+  ClassNamesFn,
+  themeable,
+  autobind,
+  createObject,
+  TestIdBuilder,
+  filter
+} from 'amis-core';
 
 import {getIcon, Icon} from '../icons';
 import {Badge} from '../Badge';
@@ -35,6 +42,7 @@ export interface SubMenuProps
   onTitleClick?: (e: MenuItemTitleInfo) => void;
   renderLink: Function;
   [propName: string]: any;
+  testIdBuilder?: TestIdBuilder;
 }
 
 export class SubMenu extends React.Component<SubMenuProps> {
@@ -104,6 +112,7 @@ export class SubMenu extends React.Component<SubMenuProps> {
       disabled,
       data: defaultData,
       extra,
+      testIdBuilder,
       renderLink
     } = this.props;
     const isCollapsedNode = collapsed && depth === 1;
@@ -158,7 +167,11 @@ export class SubMenu extends React.Component<SubMenuProps> {
       ) : null;
     const dragNode =
       !disabled && stacked && mode === 'inline' && !collapsed && draggable ? (
-        <span className={cx('Nav-Menu-item-dragBar')} draggable>
+        <span
+          className={cx('Nav-Menu-item-dragBar')}
+          draggable
+          {...testIdBuilder?.getChild('drag-bar').getTestId()}
+        >
           <DragIcon />
         </span>
       ) : null;
@@ -173,7 +186,11 @@ export class SubMenu extends React.Component<SubMenuProps> {
           {labelNode}
           {labelExtra}
           {!stacked && depth === 1 ? (
-            <span key="expand-toggle" className={cx('Nav-Menu-submenu-arrow')}>
+            <span
+              key="expand-toggle"
+              className={cx('Nav-Menu-submenu-arrow')}
+              {...testIdBuilder?.getChild('expand-toggle').getTestId()}
+            >
               <Icon icon="right-arrow-bold" className="icon" />
             </span>
           ) : null}
@@ -197,6 +214,7 @@ export class SubMenu extends React.Component<SubMenuProps> {
             data-id={link?.__id || id}
             data-depth={depth}
             onDragStart={onDragStart?.(link)}
+            {...testIdBuilder?.getTestId()}
           >
             {renderContent()}
           </a>

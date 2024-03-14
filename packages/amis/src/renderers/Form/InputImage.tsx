@@ -459,6 +459,8 @@ export default class ImageControl extends React.Component<
   // 文件重新上传的位置标记，用以定位替换
   reuploadIndex: undefined | number = undefined;
 
+  toDispose: Array<() => void> = [];
+
   constructor(props: ImageProps) {
     super(props);
     const value: string | Array<string | FileValue> | FileValue = props.value;
@@ -514,17 +516,19 @@ export default class ImageControl extends React.Component<
   }
 
   componentDidMount() {
-    const {formInited, addHook} = this.props;
+    const {formInited, addHook, formItem} = this.props;
 
-    if (formInited || !addHook) {
+    const onInited = () => {
       this.initedFilled = true;
       this.props.initAutoFill && this.syncAutoFill();
-    } else if (addHook) {
-      addHook(() => {
-        this.initedFilled = true;
-        this.props.initAutoFill && this.syncAutoFill();
-      }, 'init');
-    }
+    };
+
+    formItem &&
+      this.toDispose.push(
+        formInited || !addHook
+          ? formItem.addInitHook(onInited)
+          : addHook(onInited, 'init')
+      );
 
     if (this.props.initCrop && this.files.length) {
       this.editImage(0);
@@ -598,6 +602,9 @@ export default class ImageControl extends React.Component<
   componentWillUnmount() {
     this.unmounted = true;
     this.fileKeys = new WeakMap();
+
+    this.toDispose.forEach(fn => fn());
+    this.toDispose = [];
   }
 
   getFileKey(file: FileValue | FileX) {
@@ -1545,7 +1552,12 @@ export default class ImageControl extends React.Component<
         // 换回来
         const parent = e.to as HTMLElement;
         if (e.oldIndex < parent.childNodes.length - 1) {
-          parent.insertBefore(e.item, parent.childNodes[e.oldIndex]);
+          parent.insertBefore(
+            e.item,
+            parent.childNodes[
+              e.oldIndex > e.newIndex ? e.oldIndex + 1 : e.oldIndex
+            ]
+          );
         } else {
           parent.appendChild(e.item);
         }
@@ -1618,7 +1630,12 @@ export default class ImageControl extends React.Component<
         className={cx(
           `ImageControl`,
           className,
-          setThemeClassName('inputImageControlClassName', id, themeCss)
+          setThemeClassName({
+            ...this.props,
+            name: 'inputImageControlClassName',
+            id,
+            themeCss
+          })
         )}
       >
         {cropFile ? (
@@ -1671,7 +1688,6 @@ export default class ImageControl extends React.Component<
             accept={accept}
             multiple={dropMultiple}
             disabled={disabled}
-            maxSize={crop ? undefined : maxSize}
           >
             {({
               getRootProps,
@@ -1965,17 +1981,19 @@ export default class ImageControl extends React.Component<
                             },
                             fixedSize ? 'ImageControl-fixed-size' : '',
                             fixedSize ? fixedSizeClassName : '',
-                            setThemeClassName(
-                              'addBtnControlClassName',
+                            setThemeClassName({
+                              ...this.props,
+                              name: 'addBtnControlClassName',
                               id,
                               themeCss
-                            ),
-                            setThemeClassName(
-                              'addBtnControlClassName',
+                            }),
+                            setThemeClassName({
+                              ...this.props,
+                              name: 'addBtnControlClassName',
                               id,
-                              formatIconThemeCss(themeCss),
-                              'icon'
-                            ),
+                              themeCss: formatIconThemeCss(themeCss),
+                              extra: 'icon'
+                            }),
                             error ? 'is-invalid' : ''
                           )}
                           style={frameImageStyle}
@@ -1987,11 +2005,12 @@ export default class ImageControl extends React.Component<
                             className="icon"
                             iconContent={cx(
                               ':ImageControl-addBtn-icon',
-                              setThemeClassName(
-                                'iconControlClassName',
+                              setThemeClassName({
+                                ...this.props,
+                                name: 'iconControlClassName',
                                 id,
                                 themeCss
-                              )
+                              })
                             )}
                           />
                           <span className={cx('ImageControl-addBtn-text')}>
@@ -2038,6 +2057,7 @@ export default class ImageControl extends React.Component<
           </DropZone>
         )}
         <CustomStyle
+          {...this.props}
           config={{
             themeCss,
             classNames: [
@@ -2069,6 +2089,7 @@ export default class ImageControl extends React.Component<
           env={env}
         />
         <CustomStyle
+          {...this.props}
           config={{
             themeCss: formatIconThemeCss(themeCss),
             classNames: [

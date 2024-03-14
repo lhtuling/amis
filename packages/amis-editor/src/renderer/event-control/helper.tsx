@@ -6,10 +6,10 @@ import {
   BaseEventContext,
   defaultValue,
   EditorManager,
-  getFixDialogType,
   getSchemaTpl,
   JsonGenerateID,
   JSONGetById,
+  modalsToDefinitions,
   persistGet,
   persistSet,
   PluginActions,
@@ -35,6 +35,7 @@ import without from 'lodash/without';
 import {ActionConfig, ComponentInfo, ContextVariables} from './types';
 import CmptActionSelect from './comp-action-select';
 import {ActionData} from '.';
+import DialogActionPanel from './DialogActionPanel';
 
 export const getArgsWrapper = (
   items: any,
@@ -281,6 +282,73 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
   const variableOptions = variableManager?.getVariableOptions() || [];
   const pageVariableOptions = variableManager?.getPageVariablesOptions() || [];
 
+  const modalDescDetail: (info: any, context: any, props: any) => any = (
+    info,
+    {eventKey, actionIndex},
+    props: any
+  ) => {
+    const {
+      actionTree,
+      actions: pluginActions,
+      commonActions,
+      allComponents,
+      node,
+      manager
+    } = props;
+    const store = manager.store;
+    const modals = store.modals;
+    const onEvent = node.schema?.onEvent;
+    const action = onEvent?.[eventKey].actions?.[actionIndex];
+    const actionBody =
+      action?.[action?.actionType === 'drawer' ? 'drawer' : 'dialog'];
+    let modalId = actionBody?.$$id;
+    if (actionBody?.$ref) {
+      modalId =
+        modals.find((item: any) => item.$$ref === actionBody.$ref)?.$$id || '';
+    }
+    const modal = modalId
+      ? manager.store.modals.find((item: any) => item.$$id === modalId)
+      : '';
+    if (modal) {
+      return (
+        <>
+          <div>
+            打开&nbsp;
+            <a
+              href="#"
+              onClick={(e: React.UIEvent<any>) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                store.openSubEditor({
+                  title: '编辑弹窗',
+                  value: {
+                    type: 'dialog',
+                    ...modal,
+                    definitions: modalsToDefinitions(store.modals)
+                  },
+                  onChange: ({definitions, ...modal}: any, diff: any) => {
+                    store.updateModal(modal.$$id!, modal, definitions);
+                  }
+                });
+              }}
+            >
+              {modal.editorSetting?.displayName || modal.title || '未命名弹窗'}
+            </a>
+            &nbsp;
+            {(modal as any).actionType === 'confirmDialog'
+              ? '确认框'
+              : modal.type === 'drawer'
+              ? '抽屉弹窗'
+              : '弹窗'}
+          </div>
+        </>
+      );
+    }
+
+    return null;
+  };
+
   return [
     {
       actionLabel: '页面',
@@ -302,7 +370,6 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
           schema: getArgsWrapper([
             {
               type: 'wrapper',
-              className: 'p-none',
               body: [
                 getSchemaTpl('textareaFormulaControl', {
                   name: 'url',
@@ -370,84 +437,30 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
           description: '打开弹窗，弹窗内支持复杂的交互设计',
           actions: [
             {
-              actionType: 'dialog'
+              actionType: 'dialog',
+              descDetail: modalDescDetail
             },
             {
-              actionType: 'drawer'
+              actionType: 'drawer',
+              descDetail: modalDescDetail
             },
             {
-              actionType: 'confirmDialog'
+              actionType: 'confirmDialog',
+              descDetail: modalDescDetail
             }
           ],
           schema: [
             {
-              type: 'radios',
-              label: '弹窗来源',
-              name: '__dialogSource',
-              required: true,
-              mode: 'horizontal',
-              inputClassName: 'event-action-radio',
-              value: 'new',
-              options: [
-                {
-                  label: '选择页面内已有弹窗',
-                  value: 'current'
-                },
-                {
-                  label: '新建弹窗',
-                  value: 'new'
-                }
-              ]
-            },
-            {
-              name: '__dialogTitle',
-              type: 'input-text',
-              label: '弹窗标题',
-              placeholder: '请输入弹窗标题',
-              mode: 'horizontal',
-              size: 'lg',
-              visibleOn: '__dialogSource === "new"'
-            },
-            {
-              name: '__selectDialog',
-              type: 'select',
-              label: '选择弹窗',
-              source: '${__dialogActions}',
-              mode: 'horizontal',
-              size: 'lg',
-              visibleOn: '__dialogSource === "current"',
-              onChange: (value: any, oldValue: any, model: any, form: any) => {
-                form.setValueByName('args', {
-                  fromCurrentDialog: true
-                });
-              }
-            },
-            {
-              type: 'radios',
-              label: '弹窗类型',
-              name: 'groupType',
-              mode: 'horizontal',
-              value: 'dialog',
-              required: true,
-              pipeIn: defaultValue('dialog'),
-              inputClassName: 'event-action-radio',
-              options: [
-                {
-                  label: '弹窗',
-                  value: 'dialog'
-                },
-                {
-                  label: '抽屉',
-                  value: 'drawer'
-                },
-                {
-                  label: '确认对话框',
-                  value: 'confirmDialog'
-                }
-              ],
-              visibleOn:
-                'data.actionType === "openDialog" && __dialogSource === "new"'
+              component: DialogActionPanel
             }
+            // {
+            //   name: '__selectDialog',
+            //   type: 'select',
+            //   label: '选择弹窗',
+            //   source: '${__dialogActions}',
+            //   mode: 'horizontal',
+            //   size: 'lg'
+            // }
           ]
         },
         {
@@ -456,7 +469,6 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
           description: '关闭当前弹窗' // 或者关闭指定弹窗
           // schema: getArgsWrapper({
           //   type: 'wrapper',
-          //   className: 'p-none',
           //   body: [
           //     {
           //       type: 'radios',
@@ -516,7 +528,6 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
           },
           schema: getArgsWrapper({
             type: 'wrapper',
-            className: 'p-none',
             body: [
               {
                 type: 'button-group-select',
@@ -750,7 +761,7 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
           // innerArgs: ['api'],
           schema: {
             type: 'wrapper',
-            style: {padding: '0'},
+            className: 'p-none',
             body: [
               // getArgsWrapper(
               //   getSchemaTpl('apiControl', {
@@ -1075,7 +1086,6 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
             {
               type: 'wrapper',
               size: 'sm',
-              visibleOn: 'data.componentId === "customCmptId"',
               body: [
                 ...renderCmptSelect(
                   '目标组件',
@@ -1087,23 +1097,6 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                     form.setValueByName('__reloadParam', []);
                   },
                   true
-                )
-              ]
-            },
-            {
-              type: 'wrapper',
-              size: 'sm',
-              visibleOn: 'data.componentId !== "customCmptId"',
-              body: [
-                ...renderCmptSelect(
-                  '目标组件',
-                  true,
-                  (value: string, oldVal: any, data: any, form: any) => {
-                    form.setValueByName('args.resetPage', true);
-                    form.setValueByName('__addParam', false);
-                    form.setValueByName('__containerType', 'all');
-                    form.setValueByName('__reloadParam', []);
-                  }
                 )
               ]
             },
@@ -1257,19 +1250,19 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                 {/* 只要path字段存在就认为是应用变量赋值，无论是否有值 */}
                 {typeof info?.args?.path === 'string' && !info?.componentId ? (
                   <>
-                    设置变量「
+                    设置变量
                     <span className="variable-left variable-right">
                       {variableManager.getNameByPath(info.args.path)}
                     </span>
-                    」的数据
+                    的数据
                   </>
                 ) : (
                   <>
-                    设置组件「
+                    设置组件
                     <span className="variable-left variable-right">
                       {info?.rendererLabel || info.componentId || '-'}
                     </span>
-                    」的数据
+                    的数据
                   </>
                 )}
                 {/* 值为
@@ -1321,8 +1314,8 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
               body: [
                 {
                   type: 'wrapper',
-                  size: 'sm',
                   visibleOn: 'data.componentId === "customCmptId"',
+                  className: 'p-none mb-6',
                   body: [
                     ...renderCmptActionSelect(
                       '目标组件',
@@ -1338,7 +1331,7 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                 {
                   type: 'wrapper',
                   visibleOn: 'data.componentId !== "customCmptId"',
-                  size: 'sm',
+                  className: 'p-none mb-6',
                   body: [
                     ...renderCmptActionSelect(
                       '目标组件',
@@ -1373,7 +1366,6 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                 ),
                 getArgsWrapper({
                   type: 'wrapper',
-                  className: 'p-none',
                   body: [
                     {
                       type: 'radios',
@@ -1440,7 +1432,7 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                       size: 'lg',
                       placeholder: '请输入待更新序号',
                       visibleOn: `(data.__rendererName === 'input-table' || data.__rendererName === 'combo')
-                      && data.__comboType === 'appoint'`
+                    && data.__comboType === 'appoint'`
                     },
                     {
                       type: 'combo',
@@ -1517,7 +1509,7 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                         }
                       ],
                       visibleOn: `(data.__rendererName === 'combo' || data.__rendererName === 'input-table')
-                      && data.__comboType === 'all'`
+                    && data.__comboType === 'all'`
                     },
                     getSchemaTpl('formulaControl', {
                       name: '__valueInput',
@@ -1549,12 +1541,14 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                 getArgsWrapper([
                   {
                     type: 'wrapper',
-                    className: 'p-none',
                     body: [
                       getCustomNodeTreeSelectSchema({
                         label: '页面参数',
                         rootLabel: '页面参数',
-                        options: pageVariableOptions
+                        options: pageVariableOptions,
+                        horizontal: {
+                          leftFixed: true
+                        }
                       }),
                       getSchemaTpl('formulaControl', {
                         name: 'value',
@@ -1563,7 +1557,10 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                         size: 'lg',
                         mode: 'horizontal',
                         required: true,
-                        placeholder: '请输入变量值'
+                        placeholder: '请输入变量值',
+                        horizontal: {
+                          leftFixed: true
+                        }
                       })
                     ]
                   }
@@ -1578,10 +1575,12 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                 getArgsWrapper([
                   {
                     type: 'wrapper',
-                    className: 'p-none',
                     body: [
                       getCustomNodeTreeSelectSchema({
-                        options: variableOptions
+                        options: variableOptions,
+                        horizontal: {
+                          leftFixed: true
+                        }
                       }),
                       getSchemaTpl('formulaControl', {
                         name: 'value',
@@ -1590,7 +1589,10 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
                         size: 'lg',
                         mode: 'horizontal',
                         required: true,
-                        placeholder: '请输入变量值'
+                        placeholder: '请输入变量值',
+                        horizontal: {
+                          leftFixed: true
+                        }
                       })
                     ]
                   }
@@ -1824,7 +1826,6 @@ export const ACTION_TYPE_TREE = (manager: any): RendererPluginAction[] => {
           },
           schema: getArgsWrapper({
             type: 'wrapper',
-            className: 'p-none',
             body: [
               getSchemaTpl('textareaFormulaControl', {
                 name: 'content',
@@ -1940,52 +1941,34 @@ export const renderCmptSelect = (
   required: boolean,
   onChange?: (value: string, oldVal: any, data: any, form: any) => void,
   hideAutoFill?: boolean
-) => {
-  if (hideAutoFill) {
-    return [
-      {
-        type: 'tree-select',
-        name: 'componentId',
-        label: componentLabel || '选择组件',
-        showIcon: false,
-        searchable: true,
-        required,
-        selfDisabledAffectChildren: false,
-        size: 'lg',
-        source: '${__cmptTreeSource}',
-        mode: 'horizontal',
-        onChange: async (value: string, oldVal: any, data: any, form: any) => {
-          onChange?.(value, oldVal, data, form);
-        }
-      }
-    ];
-  } else {
-    return [
-      {
-        type: 'tree-select',
-        name: 'componentId',
-        label: componentLabel || '选择组件',
-        showIcon: false,
-        searchable: true,
-        required,
-        selfDisabledAffectChildren: false,
-        size: 'lg',
-        source: '${__cmptTreeSource}',
-        mode: 'horizontal',
-        autoFill: {
-          __rendererLabel: '${label}',
-          __rendererName: '${type}',
-          __nodeId: '${id}',
-          __nodeSchema: '${schema}',
-          __isScopeContainer: '${isScopeContainer}'
-        },
-        onChange: async (value: string, oldVal: any, data: any, form: any) => {
-          onChange?.(value, oldVal, data, form);
-        }
-      }
-    ];
+) => [
+  {
+    type: 'tree-select',
+    name: 'componentId',
+    label: componentLabel || '选择组件',
+    showIcon: false,
+    searchable: true,
+    required,
+    selfDisabledAffectChildren: false,
+    size: 'lg',
+    source: '${__cmptTreeSource}',
+    mode: 'horizontal',
+    autoFill: {
+      __isScopeContainer: '${isScopeContainer}',
+      ...(hideAutoFill
+        ? {}
+        : {
+            __rendererLabel: '${label}',
+            __rendererName: '${type}',
+            __nodeId: '${id}',
+            __nodeSchema: '${schema}'
+          })
+    },
+    onChange: async (value: string, oldVal: any, data: any, form: any) => {
+      onChange?.(value, oldVal, data, form);
+    }
   }
-};
+];
 
 // 渲染组件特性动作配置项
 export const renderCmptActionSelect = (
@@ -2112,7 +2095,6 @@ export const COMMON_ACTION_SCHEMA_MAP: {
     },
     schema: getArgsWrapper({
       type: 'wrapper',
-      className: 'p-none',
       body: [
         {
           type: 'radios',
@@ -2169,7 +2151,7 @@ export const COMMON_ACTION_SCHEMA_MAP: {
           size: 'lg',
           placeholder: '请输入待更新序号',
           visibleOn: `(data.__rendererName === 'input-table' || data.__rendererName === 'combo')
-          && data.__comboType === 'appoint'`
+      && data.__comboType === 'appoint'`
         },
         {
           type: 'combo',
@@ -2246,7 +2228,7 @@ export const COMMON_ACTION_SCHEMA_MAP: {
             }
           ],
           visibleOn: `(data.__rendererName === 'combo' || data.__rendererName === 'input-table')
-          && data.__comboType === 'all'`
+      && data.__comboType === 'all'`
         },
         getSchemaTpl('formulaControl', {
           name: '__valueInput',
@@ -2264,7 +2246,10 @@ export const COMMON_ACTION_SCHEMA_MAP: {
           size: 'lg',
           mode: 'horizontal',
           visibleOn: `data.__rendererName && !data.__isScopeContainer && data.__rendererName !== 'combo' && data.__rendererName !== 'input-table'`,
-          required: true
+          required: true,
+          horizontal: {
+            leftFixed: true
+          }
         })
       ]
     })
@@ -2674,52 +2659,51 @@ export const getOldActionSchema = (
                   showLoading: true
                 }),
                 asFormItem: true,
-                children: ({value, onChange, data}: any) =>
-                  data.actionType === 'dialog' ? (
-                    <Button
-                      size="sm"
-                      level="danger"
-                      className="m-b"
-                      onClick={() =>
-                        manager.openSubEditor({
-                          title: '配置弹框内容',
-                          value: {type: 'dialog', ...value},
-                          onChange: value => onChange(value)
-                        })
-                      }
-                      block
-                    >
-                      配置弹框内容
-                    </Button>
-                  ) : null
+                visibleOn: '${actionType === "dialog"}',
+                children: ({value, onChange, data}: any) => (
+                  <Button
+                    size="sm"
+                    level="danger"
+                    className="m-b"
+                    onClick={() =>
+                      manager.openSubEditor({
+                        title: '配置弹框内容',
+                        value: {type: 'dialog', ...value},
+                        onChange: value => onChange(value)
+                      })
+                    }
+                    block
+                  >
+                    配置弹框内容
+                  </Button>
+                )
               },
 
               {
-                visibleOn: 'data.actionType == "drawer"',
                 name: 'drawer',
                 pipeIn: defaultValue({
                   title: '抽屉标题',
                   body: '对，你刚刚点击了'
                 }),
                 asFormItem: true,
-                children: ({value, onChange, data}: any) =>
-                  data.actionType == 'drawer' ? (
-                    <Button
-                      size="sm"
-                      level="danger"
-                      className="m-b"
-                      onClick={() =>
-                        manager.openSubEditor({
-                          title: '配置抽出式弹框内容',
-                          value: {type: 'drawer', ...value},
-                          onChange: value => onChange(value)
-                        })
-                      }
-                      block
-                    >
-                      配置抽出式弹框内容
-                    </Button>
-                  ) : null
+                visibleOn: '${actionType == "drawer"}',
+                children: ({value, onChange, data}: any) => (
+                  <Button
+                    size="sm"
+                    level="danger"
+                    className="m-b"
+                    onClick={() =>
+                      manager.openSubEditor({
+                        title: '配置抽出式弹框内容',
+                        value: {type: 'drawer', ...value},
+                        onChange: value => onChange(value)
+                      })
+                    }
+                    block
+                  >
+                    配置抽出式弹框内容
+                  </Button>
+                )
               },
 
               getSchemaTpl('api', {
@@ -2734,35 +2718,35 @@ export const getOldActionSchema = (
                   body: '内容'
                 }),
                 asFormItem: true,
-                children: ({onChange, value, data}: any) =>
-                  data.actionType == 'ajax' ? (
-                    <div className="m-b">
+                visibleOn: '${actionType == "ajax"}',
+                children: ({onChange, value, data}: any) => (
+                  <div className="m-b">
+                    <Button
+                      size="sm"
+                      level={value ? 'danger' : 'info'}
+                      onClick={() =>
+                        manager.openSubEditor({
+                          title: '配置反馈弹框详情',
+                          value: {type: 'dialog', ...value},
+                          onChange: value => onChange(value)
+                        })
+                      }
+                    >
+                      配置反馈弹框内容
+                    </Button>
+
+                    {value ? (
                       <Button
                         size="sm"
-                        level={value ? 'danger' : 'info'}
-                        onClick={() =>
-                          manager.openSubEditor({
-                            title: '配置反馈弹框详情',
-                            value: {type: 'dialog', ...value},
-                            onChange: value => onChange(value)
-                          })
-                        }
+                        level="link"
+                        className="m-l"
+                        onClick={() => onChange('')}
                       >
-                        配置反馈弹框内容
+                        清空设置
                       </Button>
-
-                      {value ? (
-                        <Button
-                          size="sm"
-                          level="link"
-                          className="m-l"
-                          onClick={() => onChange('')}
-                        >
-                          清空设置
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null
+                    ) : null}
+                  </div>
+                )
               },
 
               {
@@ -3257,137 +3241,10 @@ export const getEventControlConfig = (
         delete action.addOnArgs;
       }
 
-      if (config.actionType === 'openDialog') {
-        // 初始化弹窗schema
-        const dialogInitSchema = {
-          type: 'dialog',
-          title: action.__dialogTitle,
-          body: [
-            {
-              type: 'tpl',
-              tpl: '对，你刚刚点击了',
-              wrapperComponent: '',
-              inline: false
-            }
-          ],
-          showCloseButton: true,
-          showErrorMsg: true,
-          showLoading: true,
-          className: 'app-popover :AMISCSSWrapper',
-          actions: [
-            {
-              type: 'button',
-              actionType: 'cancel',
-              label: '取消'
-            },
-            {
-              type: 'button',
-              actionType: 'confirm',
-              label: '确认',
-              primary: true
-            }
-          ]
-        };
-
-        const drawerInitSchema = {
-          type: 'drawer',
-          title: action.__dialogTitle,
-          body: [
-            {
-              type: 'tpl',
-              tpl: '对，你刚刚点击了',
-              wrapperComponent: '',
-              inline: false
-            }
-          ],
-          className: 'app-popover :AMISCSSWrapper',
-          actions: [
-            {
-              type: 'button',
-              actionType: 'cancel',
-              label: '取消'
-            },
-            {
-              type: 'button',
-              actionType: 'confirm',
-              label: '确认',
-              primary: true
-            }
-          ]
-        };
-
-        const confirmDialogInitSchema = {
-          type: 'dialog',
-          title: action.__dialogTitle,
-          body: [
-            {
-              type: 'tpl',
-              tpl: '对，你刚刚点击了',
-              wrapperComponent: '',
-              inline: false
-            }
-          ],
-          dialogType: 'confirm',
-          confirmText: '确认',
-          cancelText: '取消',
-          confirmBtnLevel: 'primary'
-        };
-
-        const setInitSchema = (groupType: string, action: ActionConfig) => {
-          if (groupType === 'dialog') {
-            JsonGenerateID(dialogInitSchema);
-            action.dialog = dialogInitSchema;
-          } else if (groupType === 'drawer') {
-            JsonGenerateID(drawerInitSchema);
-            action.drawer = drawerInitSchema;
-          } else if (groupType === 'confirmDialog') {
-            JsonGenerateID(confirmDialogInitSchema);
-            action.dialog = confirmDialogInitSchema;
-          }
-        };
-
-        const chooseCurrentDialog = (action: ActionConfig, schema: Schema) => {
-          const selectDialog = action.__selectDialog;
-          let dialogType = getFixDialogType(schema, selectDialog);
-          // 选择现有弹窗后为了使之前的弹窗和现有弹窗$$id唯一，这里重新生成一下
-          let newDialogId = guid();
-          action.actionType = dialogType;
-          action[dialogType] = {
-            $$id: newDialogId,
-            type: dialogType
-          };
-          // 在这里记录一下新生成的弹窗id
-          action.__relatedDialogId = newDialogId;
-        };
-
-        if (type === 'add') {
-          if (config.__dialogSource === 'new') {
-            setInitSchema(config.groupType, action);
-          } else if (config.__dialogSource === 'current') {
-            chooseCurrentDialog(action, shcema!);
-          }
-        }
-        // 编辑
-        else if (type === 'update') {
-          if (config.__dialogSource === 'new') {
-            // 如果切换了弹窗类型或切换了弹窗来源，则初始化schema
-            if (
-              config.groupType !== actionData?.groupType ||
-              (config.__dialogSource === 'new' &&
-                actionData?.__dialogSource === 'current')
-            ) {
-              setInitSchema(config.groupType, action);
-            } else {
-              action[config.groupType] = {
-                ...actionData![config.groupType],
-                title: config.__dialogTitle
-              };
-            }
-          } else if (config.__dialogSource === 'current') {
-            chooseCurrentDialog(action, shcema!);
-          }
-        }
-      }
+      // 不加回来可能数据会丢失
+      ['drawer', 'dialog', 'args'].forEach(key => {
+        action[key] = action[key] ?? actionData?.[key];
+      });
 
       // 刷新组件时，处理是否追加事件变量
       if (config.actionType === 'reload') {

@@ -580,8 +580,8 @@ export class EditorManager {
     let id = curRendererId || this.store.activeId;
     let panels: Array<BasicPanelItem> = [];
 
-    if (!id && this.store?.schema) {
-      id = this.store?.schema.$$id; // 默认使用根节点id
+    if (!id && this.store?.filteredSchema) {
+      id = this.store?.filteredSchema.$$id; // 默认使用根节点id
     }
 
     if (id || this.store.selections.length) {
@@ -873,7 +873,11 @@ export class EditorManager {
    * @param rendererIdOrSchema
    * 备注：可以根据渲染器ID添加新元素，也可以根据现有schema片段添加新元素
    */
-  async addElem(rendererIdOrSchema: string | any, reGenerateId?: boolean) {
+  async addElem(
+    rendererIdOrSchema: string | any,
+    reGenerateId?: boolean,
+    activeChild: boolean = true
+  ) {
     if (!rendererIdOrSchema) {
       return;
     }
@@ -956,6 +960,10 @@ export class EditorManager {
       // 当前节点是布局类容器节点
       regionNodeId = curActiveId;
       regionNodeRegion = 'items';
+    } else if (node.schema.fields && node.schema.type === 'doc-entity') {
+      // 当前节点是表单视图
+      regionNodeId = curActiveId;
+      regionNodeRegion = 'fields';
     } else if (node.schema.body) {
       // 当前节点是容器节点
       regionNodeId = curActiveId;
@@ -1025,7 +1033,7 @@ export class EditorManager {
       },
       reGenerateId
     );
-    if (child) {
+    if (child && activeChild) {
       // mobx 修改数据是异步的
       setTimeout(() => {
         store.setActiveId(child.$$id);
@@ -1319,10 +1327,15 @@ export class EditorManager {
    * @param diff
    */
   @autobind
-  panelChangeValue(value: any, diff?: any) {
+  panelChangeValue(
+    value: any,
+    diff?: any,
+    changeFilter?: (schema: any, value: any, id: string, diff?: any) => any,
+    id = this.store.activeId
+  ) {
     const store = this.store;
     const context: ChangeEventContext = {
-      ...this.buildEventContext(store.activeId),
+      ...this.buildEventContext(id),
       value,
       diff
     };
@@ -1332,9 +1345,12 @@ export class EditorManager {
       return;
     }
 
-    store.changeValue(value, diff);
+    store.changeValue(value, diff, changeFilter, id);
 
-    this.trigger('after-update', context);
+    this.trigger('after-update', {
+      ...context,
+      schema: context.node.schema // schema 是新的，因为修改完了
+    });
   }
 
   /**
@@ -2141,7 +2157,8 @@ export class EditorManager {
     }
 
     while (scope) {
-      const [id, type] = scope.id.split('-');
+      const [id] = scope.id.split('-');
+      const type = scope.id.substring(id.length + 1); // replace(`${id}-`, '');
       const scopeNode = this.store.getNodeById(id, type);
 
       if (scopeNode && !scopeNode.info?.isListComponent) {

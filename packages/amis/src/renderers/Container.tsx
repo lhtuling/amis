@@ -195,7 +195,8 @@ export default class Container<T> extends React.Component<
       wrapperCustomStyle,
       env,
       themeCss,
-      baseControlClassName
+      baseControlClassName,
+      testid
     } = this.props;
     const finalDraggable: boolean = isPureVariable(draggable)
       ? resolveVariableAndFilter(draggable, data, '| raw')
@@ -214,8 +215,18 @@ export default class Container<T> extends React.Component<
           'Container',
           size && size !== 'none' ? `Container--${size}` : '',
           className,
-          setThemeClassName('baseControlClassName', id, themeCss),
-          setThemeClassName('wrapperCustomStyle', id, wrapperCustomStyle)
+          setThemeClassName({
+            ...this.props,
+            name: 'baseControlClassName',
+            id,
+            themeCss
+          }),
+          setThemeClassName({
+            ...this.props,
+            name: 'wrapperCustomStyle',
+            id,
+            themeCss: wrapperCustomStyle
+          })
         )}
         onClick={this.handleClick}
         onMouseEnter={this.handleMouseEnter}
@@ -224,6 +235,7 @@ export default class Container<T> extends React.Component<
       >
         {this.renderBody()}
         <CustomStyle
+          {...this.props}
           config={{
             wrapperCustomStyle,
             id,

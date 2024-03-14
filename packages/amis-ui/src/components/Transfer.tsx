@@ -25,6 +25,8 @@ import ResultTreeList from './ResultTreeList';
 import {SpinnerExtraProps} from './Spinner';
 import Pagination from './Pagination';
 
+import type {TestIdBuilder} from 'amis-core';
+
 export type SelectMode =
   | 'table'
   | 'group'
@@ -79,8 +81,14 @@ export interface TransferProps
   onChange?: (value: Array<Option>, optionModified?: boolean) => void;
   onSearch?: (
     term: string,
-    setCancel: (cancel: () => void) => void
-  ) => Promise<Options | void>;
+    setCancel: (cancel: () => void) => void,
+    targetPage?: {page: number; perPage?: number}
+  ) => Promise<{
+    items: Options;
+    page?: number;
+    perPage?: number;
+    total?: number;
+  } | void>;
 
   // 自定义选择框相关
   selectRender?: (
@@ -151,12 +159,22 @@ export interface TransferProps
     perPage?: number,
     direction?: 'forward' | 'backward'
   ) => void;
+  /**
+   * 是否默认都展开
+   */
+  initiallyOpen?: boolean;
+  /**
+   * ui级联关系，true代表级联选中，false代表不级联，默认为true
+   */
+  autoCheckChildren?: boolean;
+  testIdBuilder?: TestIdBuilder;
 }
 
 export interface TransferState {
   tempValue?: Array<Option> | Option;
   inputValue: string;
   searchResult: Options | null;
+  searchResultPage?: {page?: number; perPage?: number; total?: number} | null;
   isTreeDeferLoad: boolean;
   resultSelectMode: 'list' | 'tree' | 'table';
 }
@@ -188,6 +206,7 @@ export class Transfer<
   state: TransferState = {
     inputValue: '',
     searchResult: null,
+    searchResultPage: null,
     isTreeDeferLoad: false,
     resultSelectMode: 'list'
   };
@@ -376,37 +395,50 @@ export class Transfer<
   handleSeachCancel() {
     this.setState({
       inputValue: '',
-      searchResult: null
+      searchResult: null,
+      searchResultPage: null
     });
   }
 
-  lazySearch = debounce(
-    async () => {
-      const {inputValue} = this.state;
-      if (!inputValue) {
-        return;
-      }
-      const onSearch = this.props.onSearch!;
-      let result = await onSearch(
-        inputValue,
-        (cancelExecutor: () => void) => (this.cancelSearch = cancelExecutor)
-      );
+  lazySearch = debounce(this.searchRequest, 250, {
+    trailing: true,
+    leading: false
+  });
 
-      if (this.unmounted) {
-        return;
-      }
+  @autobind
+  async searchRequest(page?: number, perPage?: number) {
+    const {pagination} = this.props;
+    const {inputValue} = this.state;
+    if (!inputValue) {
+      return;
+    }
 
-      if (!Array.isArray(result)) {
+    const onSearch = this.props.onSearch!;
+    let result = await onSearch(
+      inputValue,
+      (cancelExecutor: () => void) => (this.cancelSearch = cancelExecutor),
+      this.props.pagination?.enable
+        ? {page: page || 1, perPage: perPage || pagination?.perPage || 10}
+        : undefined
+    );
+
+    if (this.unmounted) {
+      return;
+    }
+
+    if (result) {
+      const {items, ...currentPage} = result;
+
+      if (!Array.isArray(items)) {
         throw new Error('onSearch 需要返回数组');
       }
 
       this.setState({
-        searchResult: result
+        searchResult: items,
+        searchResultPage: {...currentPage}
       });
-    },
-    250,
-    {trailing: true, leading: false}
-  );
+    }
+  }
 
   getFlattenArr(options: Array<Option>) {
     const {valueField = 'value'} = this.props;
@@ -478,6 +510,22 @@ export class Transfer<
         });
   }
 
+  @autobind
+  onPageChangeHandle(
+    page: number,
+    perPage?: number,
+    direction?: 'forward' | 'backward'
+  ) {
+    const {onPageChange, onSearch} = this.props;
+    const {searchResult, inputValue} = this.state;
+
+    if (searchResult) {
+      this.searchRequest(page, perPage);
+    } else if (onPageChange) {
+      onPageChange(page, perPage, direction);
+    }
+  }
+
   renderSelect(
     props: TransferProps & {
       onToggleAll?: () => void;
@@ -495,7 +543,8 @@ export class Transfer<
       translate: __,
       searchPlaceholder = __('Transfer.searchKeyword'),
       mobileUI,
-      valueField = 'value'
+      valueField = 'value',
+      testIdBuilder
     } = props;
 
     if (selectRender) {
@@ -540,6 +589,7 @@ export class Transfer<
                 partial={checkedPartial && !checkedAll}
                 onChange={props.onToggleAll || this.toggleAll}
                 size="sm"
+                testIdBuilder={testIdBuilder?.getChild('toggle-all')}
               />
             ) : null}
             {__(selectTitle || 'Transfer.available')}
@@ -560,6 +610,7 @@ export class Transfer<
                 'Transfer-checkAll',
                 disabled || !options.length ? 'is-disabled' : ''
               )}
+              {...testIdBuilder?.getChild('toggle-all').getTestId()}
             >
               {__('Select.checkAll')}
             </a>
@@ -575,9 +626,13 @@ export class Transfer<
               onKeyDown={this.handleSearchKeyDown}
               placeholder={searchPlaceholder}
               mobileUI={mobileUI}
+              testIdBuilder={testIdBuilder?.getChild('search-input')}
             >
               {this.state.searchResult !== null ? (
-                <a onClick={this.handleSeachCancel}>
+                <a
+                  onClick={this.handleSeachCancel}
+                  {...testIdBuilder?.getChild('search-cancel').getTestId()}
+                >
                   <Icon icon="close" className="icon" />
                 </a>
               ) : (
@@ -597,24 +652,42 @@ export class Transfer<
   }
 
   renderFooter() {
-    const {classnames: cx, pagination, onPageChange} = this.props;
+    const {classnames: cx, pagination} = this.props;
+    const {searchResult, searchResultPage} = this.state;
 
-    return pagination?.enable ? (
+    if (!pagination || !pagination?.enable) {
+      return null;
+    }
+
+    const currentPage =
+      searchResult && searchResultPage
+        ? {
+            page: searchResultPage.page,
+            perPage: searchResultPage.perPage,
+            total: searchResultPage.total
+          }
+        : {
+            page: pagination.page,
+            perPage: pagination.perPage,
+            total: pagination.total
+          };
+
+    return (
       <div className={cx('Transfer-footer')}>
         <Pagination
           className={cx('Transfer-footer-pagination', pagination.className)}
-          activePage={pagination.page}
-          perPage={pagination.perPage}
-          total={pagination.total}
+          activePage={currentPage.page}
+          perPage={currentPage.perPage}
+          total={currentPage.total}
           layout={pagination.layout}
           maxButtons={pagination.maxButtons}
           perPageAvailable={pagination.perPageAvailable}
           popOverContainer={pagination.popOverContainer}
           popOverContainerSelector={pagination.popOverContainerSelector}
-          onPageChange={onPageChange}
+          onPageChange={this.onPageChangeHandle}
         />
       </div>
-    ) : null;
+    );
   }
 
   renderSearchResult(props: TransferProps) {
@@ -639,7 +712,8 @@ export class Transfer<
       virtualListHeight,
       checkAll,
       checkAllLabel,
-      onlyChildren
+      onlyChildren,
+      testIdBuilder
     } = props;
     const {isTreeDeferLoad, searchResult, inputValue} = this.state;
     const options = searchResult ?? [];
@@ -667,6 +741,7 @@ export class Transfer<
         virtualThreshold={virtualThreshold}
         itemHeight={itemHeight}
         virtualListHeight={virtualListHeight}
+        testIdBuilder={testIdBuilder?.getChild('search-result')}
       />
     ) : mode === 'tree' ? (
       <Tree
@@ -730,6 +805,7 @@ export class Transfer<
         virtualListHeight={virtualListHeight}
         checkAllLabel={checkAllLabel}
         checkAll={checkAll}
+        testIdBuilder={testIdBuilder?.getChild('search-result')}
       />
     );
   }
@@ -761,7 +837,10 @@ export class Transfer<
       loadingConfig,
       checkAll,
       checkAllLabel,
-      onlyChildren
+      onlyChildren,
+      autoCheckChildren = true,
+      initiallyOpen = true,
+      testIdBuilder
     } = props;
 
     return selectMode === 'table' ? (
@@ -781,6 +860,7 @@ export class Transfer<
         virtualListHeight={virtualListHeight}
         checkAllLabel={checkAllLabel}
         checkAll={checkAll}
+        testIdBuilder={testIdBuilder?.getChild('selection')}
       />
     ) : selectMode === 'tree' ? (
       <Tree
@@ -804,6 +884,9 @@ export class Transfer<
         loadingConfig={loadingConfig}
         checkAllLabel={checkAllLabel}
         checkAll={checkAll}
+        initiallyOpen={initiallyOpen}
+        autoCheckChildren={autoCheckChildren}
+        testIdBuilder={testIdBuilder?.getChild('selection')}
       />
     ) : selectMode === 'chained' ? (
       <ChainedSelection
@@ -824,6 +907,7 @@ export class Transfer<
         loadingConfig={loadingConfig}
         checkAllLabel={checkAllLabel}
         checkAll={checkAll}
+        testIdBuilder={testIdBuilder?.getChild('selection')}
       />
     ) : selectMode === 'associated' ? (
       <AssociatedSelection
@@ -850,6 +934,7 @@ export class Transfer<
         loadingConfig={loadingConfig}
         checkAllLabel={checkAllLabel}
         checkAll={checkAll}
+        testIdBuilder={testIdBuilder?.getChild('selection')}
       />
     ) : (
       <GroupedSelection
@@ -869,6 +954,7 @@ export class Transfer<
         virtualListHeight={virtualListHeight}
         checkAllLabel={checkAllLabel}
         checkAll={checkAll}
+        testIdBuilder={testIdBuilder?.getChild('selection')}
       />
     );
   }
@@ -895,7 +981,8 @@ export class Transfer<
       loadingConfig,
       showInvalidMatch,
       pagination,
-      accumulatedOptions
+      accumulatedOptions,
+      testIdBuilder
     } = this.props;
     const {resultSelectMode, isTreeDeferLoad} = this.state;
     const searchable = !isTreeDeferLoad && resultSearchable;
@@ -920,6 +1007,7 @@ export class Transfer<
             onSearch={onResultSearch}
             virtualThreshold={virtualThreshold}
             itemHeight={itemHeight}
+            testIdBuilder={testIdBuilder?.getChild('result')}
           />
         );
       case 'tree':
@@ -941,6 +1029,7 @@ export class Transfer<
             labelField={labelField}
             virtualThreshold={virtualThreshold}
             itemHeight={itemHeight}
+            testIdBuilder={testIdBuilder?.getChild('result')}
           />
         );
       default:
@@ -961,6 +1050,7 @@ export class Transfer<
             virtualThreshold={virtualThreshold}
             itemHeight={itemHeight}
             showInvalidMatch={showInvalidMatch}
+            testIdBuilder={testIdBuilder?.getChild('result')}
           />
         );
     }
@@ -983,7 +1073,8 @@ export class Transfer<
       translate: __,
       valueField = 'value',
       mobileUI,
-      pagination
+      pagination,
+      testIdBuilder
     } = this.props as any;
     const {searchResult} = this.state;
 
@@ -1046,6 +1137,7 @@ export class Transfer<
                 'Transfer-clearAll',
                 disabled || !this.valueArray.length ? 'is-disabled' : ''
               )}
+              {...testIdBuilder?.getChild('clear-all').getTestId()}
             >
               {__('clear')}
             </a>

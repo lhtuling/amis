@@ -459,6 +459,7 @@ export class CardRenderer extends React.Component<CardProps> {
                 level: 'link',
                 type: 'button',
                 ...action,
+                testid: action.testid ? filter(action.testid, data) : index,
                 size
               },
               {
@@ -549,7 +550,8 @@ export class CardRenderer extends React.Component<CardProps> {
               ),
               rowIndex: itemIndex,
               colIndex: key,
-              value: field.name ? resolveVariable(field.name, data) : undefined,
+              // 同 cell 里面逻辑一样，不要下发 value
+              // value: field.name ? resolveVariable(field.name, data) : undefined,
               popOverContainer: this.getPopOverContainer,
               onAction: this.handleAction,
               onQuickChange: this.handleQuickChange

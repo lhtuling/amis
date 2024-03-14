@@ -14,7 +14,7 @@ import {compile} from 'path-to-regexp';
 
 import type {Schema, PlainObject, FunctionPropertyNames} from '../types';
 
-import {evalExpression} from './tpl';
+import {evalExpression, filter} from './tpl';
 import {IIRendererStore} from '../store';
 import {IFormStore} from '../store/form';
 import {autobindMethod} from './autobind';
@@ -253,7 +253,8 @@ export function isObjectShallowModified(
   next: any,
   strictModeOrFunc: boolean | ((lhs: any, rhs: any) => boolean) = true,
   ignoreUndefined: boolean = false,
-  stack: Array<any> = []
+  stack: Array<any> = [],
+  maxDepth: number = -1
 ): boolean {
   if (Array.isArray(prev) && Array.isArray(next)) {
     return prev.length !== next.length
@@ -310,6 +311,9 @@ export function isObjectShallowModified(
   }
 
   stack.push(prev);
+  if (maxDepth > 0 && stack.length > maxDepth) {
+    return true;
+  }
 
   for (let i: number = keys.length - 1; i >= 0; i--) {
     const key = keys[i];
@@ -343,14 +347,8 @@ export function isArrayChildrenModified(
 
   for (let i: number = prev.length - 1; i >= 0; i--) {
     if (
-      strictMode
-        ? prev[i] !== next[i]
-        : prev[i] != next[i] ||
-          isArrayChildrenModified(
-            prev[i].children,
-            next[i].children,
-            strictMode
-          )
+      (strictMode ? prev[i] !== next[i] : prev[i] != next[i]) ||
+      isArrayChildrenModified(prev[i].children, next[i].children, strictMode)
     ) {
       return true;
     }
@@ -1901,7 +1899,7 @@ export function isClickOnInput(e: React.MouseEvent<HTMLElement>) {
     !e.currentTarget.contains(target) ||
     ~['INPUT', 'TEXTAREA'].indexOf(target.tagName) ||
     ((formItem = target.closest(
-      `button, a, [data-role="form-item"], label[data-role="checkbox"]`
+      `button, a, [data-role="form-item"], label[data-role="checkbox"], label[data-role="switch"]`
     )) &&
       e.currentTarget.contains(formItem))
   );
@@ -2280,4 +2278,53 @@ export function replaceUrlParams(path: string, params: Record<string, any>) {
   }
 
   return path;
+}
+
+export const TEST_ID_KEY: 'data-testid' = 'data-testid';
+
+export class TestIdBuilder {
+  testId?: string;
+
+  static fast(testId: string) {
+    return {
+      [TEST_ID_KEY]: testId
+    };
+  }
+
+  // 为空就表示没有启用testId，后续一直返回都将是空
+  constructor(testId?: string) {
+    this.testId = testId;
+  }
+
+  // 生成子区域的testid生成器
+  getChild(childPath: string | number, data?: object) {
+    if (this.testId == null) {
+      return new TestIdBuilder();
+    }
+
+    return new TestIdBuilder(
+      data
+        ? filter(`${this.testId}-${childPath}`, data)
+        : `${this.testId}-${childPath}`
+    );
+  }
+
+  // 获取当前组件的testid
+  getTestId(data?: object) {
+    if (this.testId == null) {
+      return undefined;
+    }
+
+    return {
+      [TEST_ID_KEY]: data ? filter(this.testId, data) : this.testId
+    };
+  }
+
+  getTestIdValue(data?: object) {
+    if (this.testId == null) {
+      return undefined;
+    }
+
+    return data ? filter(this.testId, data) : this.testId;
+  }
 }

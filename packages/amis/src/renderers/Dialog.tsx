@@ -44,6 +44,11 @@ export interface DialogSchema extends BaseSchema {
   type: 'dialog';
 
   /**
+   * 弹窗参数说明，值格式为 JSONSchema。
+   */
+  inputParams?: any;
+
+  /**
    * 默认不用填写，自动会创建确认和取消按钮。
    */
   actions?: Array<ActionSchema>;
@@ -128,13 +133,20 @@ export interface DialogSchema extends BaseSchema {
    * 可拖拽
    */
   draggable?: boolean;
+
+  /**
+   * 数据映射
+   */
+  data?: {
+    [propName: string]: any;
+  };
 }
 
 export type DialogSchemaBase = Omit<DialogSchema, 'type'>;
 
 export interface DialogProps
   extends RendererProps,
-    Omit<DialogSchema, 'className'>,
+    Omit<DialogSchema, 'className' | 'data'>,
     SpinnerExtraProps {
   onClose: (confirmed?: boolean) => void;
   onConfirm: (
@@ -231,7 +243,7 @@ export default class Dialog extends React.Component<DialogProps> {
   }
 
   buildActions(): Array<ActionSchema> {
-    const {actions, confirm, translate: __} = this.props;
+    const {actions, confirm, translate: __, testIdBuilder} = this.props;
 
     if (typeof actions !== 'undefined') {
       return actions;
@@ -240,6 +252,7 @@ export default class Dialog extends React.Component<DialogProps> {
     let ret: Array<ActionSchema> = [];
     ret.push({
       type: 'button',
+      testIdBuilder: testIdBuilder?.getChild('cancel'),
       actionType: 'cancel',
       label: __('cancel')
     });
@@ -247,6 +260,7 @@ export default class Dialog extends React.Component<DialogProps> {
     if (confirm) {
       ret.push({
         type: 'button',
+        testIdBuilder: testIdBuilder?.getChild('confirm'),
         actionType: 'confirm',
         label: __('confirm'),
         primary: true
@@ -437,11 +451,14 @@ export default class Dialog extends React.Component<DialogProps> {
   openFeedback(dialog: any, ctx: any) {
     return new Promise(resolve => {
       const {store} = this.props;
-      store.setCurrentAction({
-        type: 'button',
-        actionType: 'dialog',
-        dialog: dialog
-      });
+      store.setCurrentAction(
+        {
+          type: 'button',
+          actionType: 'dialog',
+          dialog: dialog
+        },
+        this.props.resolveDefinitions
+      );
       store.openDialog(
         ctx,
         undefined,
@@ -596,12 +613,18 @@ export default class Dialog extends React.Component<DialogProps> {
         size={size}
         height={height}
         width={width}
-        modalClassName={setThemeClassName('dialogClassName', id, themeCss)}
-        modalMaskClassName={setThemeClassName(
-          'dialogMaskClassName',
+        modalClassName={setThemeClassName({
+          ...this.props,
+          name: 'dialogClassName',
           id,
           themeCss
-        )}
+        })}
+        modalMaskClassName={setThemeClassName({
+          ...this.props,
+          name: 'dialogMaskClassName',
+          id,
+          themeCss
+        })}
         backdrop="static"
         onHide={this.handleSelfClose}
         keyboard={closeOnEsc && !store.loading}
@@ -625,7 +648,12 @@ export default class Dialog extends React.Component<DialogProps> {
             className={cx(
               'Modal-header',
               headerClassName,
-              setThemeClassName('dialogHeaderClassName', id, themeCss)
+              setThemeClassName({
+                ...this.props,
+                name: 'dialogHeaderClassName',
+                id,
+                themeCss
+              })
             )}
           >
             {showCloseButton !== false && !store.loading ? (
@@ -645,7 +673,12 @@ export default class Dialog extends React.Component<DialogProps> {
             <div
               className={cx(
                 'Modal-title',
-                setThemeClassName('dialogTitleClassName', id, themeCss)
+                setThemeClassName({
+                  ...this.props,
+                  name: 'dialogTitleClassName',
+                  id,
+                  themeCss
+                })
               )}
             >
               {filter(__(title), store.formData)}
@@ -656,7 +689,12 @@ export default class Dialog extends React.Component<DialogProps> {
             className={cx(
               'Modal-header',
               headerClassName,
-              setThemeClassName('dialogHeaderClassName', id, themeCss)
+              setThemeClassName({
+                ...this.props,
+                name: 'dialogHeaderClassName',
+                id,
+                themeCss
+              })
             )}
           >
             {showCloseButton !== false && !store.loading ? (
@@ -699,7 +737,12 @@ export default class Dialog extends React.Component<DialogProps> {
             className={cx(
               'Modal-body',
               bodyClassName,
-              setThemeClassName('dialogBodyClassName', id, themeCss)
+              setThemeClassName({
+                ...this.props,
+                name: 'dialogBodyClassName',
+                id,
+                themeCss
+              })
             )}
             role="dialog-body"
           >
@@ -711,12 +754,18 @@ export default class Dialog extends React.Component<DialogProps> {
             className={cx(
               'Modal-body',
               bodyClassName,
-              setThemeClassName('dialogBodyClassName', id, themeCss)
+              setThemeClassName({
+                ...this.props,
+                name: 'dialogBodyClassName',
+                id,
+                themeCss
+              })
             )}
             role="dialog-body"
           >
             {this.renderBody(body, 'body')}
             <CustomStyle
+              {...this.props}
               config={{
                 themeCss: themeCss,
                 classNames: [
@@ -941,7 +990,7 @@ export class DialogRenderer extends Dialog {
     const scoped = this.context as IScopedContext;
 
     if (action.type === 'reset') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       store.reset();
     } else if (
       action.actionType === 'close' ||
@@ -955,7 +1004,7 @@ export class DialogRenderer extends Dialog {
         return;
       }
 
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       // clear error
       store.updateMessage();
       onClose();
@@ -973,7 +1022,7 @@ export class DialogRenderer extends Dialog {
         return;
       }
 
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       const handleResult = this.tryChildrenToHandle(
         {
           ...action,
@@ -989,7 +1038,7 @@ export class DialogRenderer extends Dialog {
         onClose(true);
       }
     } else if (action.actionType === 'next' || action.actionType === 'prev') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       if (action.type === 'submit') {
         this.tryChildrenToHandle(
           {
@@ -1004,7 +1053,7 @@ export class DialogRenderer extends Dialog {
         onConfirm([data], action, data, []);
       }
     } else if (action.actionType === 'dialog') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       store.openDialog(
         data,
         undefined,
@@ -1012,10 +1061,10 @@ export class DialogRenderer extends Dialog {
         delegate || (this.context as any)
       );
     } else if (action.actionType === 'drawer') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       store.openDrawer(data);
     } else if (action.actionType === 'reload') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       action.target && scoped.reload(action.target, data);
       if (action.close || action.type === 'submit') {
         this.handleSelfClose(undefined, action.type === 'submit');
@@ -1027,7 +1076,7 @@ export class DialogRenderer extends Dialog {
       // 如果有 from 了，说明是从子节点冒泡上来的，那就不再走让子节点处理的逻辑。
       // do nothing
     } else if (action.actionType === 'ajax') {
-      store.setCurrentAction(action);
+      store.setCurrentAction(action, this.props.resolveDefinitions);
       store
         .saveRemote(action.api as string, data, {
           successMessage: action.messages && action.messages.success,

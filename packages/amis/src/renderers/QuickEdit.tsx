@@ -5,7 +5,13 @@
 
 import React from 'react';
 import {findDOMNode} from 'react-dom';
-import {RendererProps, getRendererByName, noop, setVariable} from 'amis-core';
+import {
+  RendererProps,
+  getPropValue,
+  getRendererByName,
+  noop,
+  setVariable
+} from 'amis-core';
 import hoistNonReactStatic from 'hoist-non-react-statics';
 import {ActionObject} from 'amis-core';
 import keycode from 'keycode';
@@ -134,6 +140,7 @@ export const HocQuickEdit =
         this.handleInit = this.handleInit.bind(this);
         this.handleChange = this.handleChange.bind(this);
         this.handleFormItemChange = this.handleFormItemChange.bind(this);
+        this.handleBulkChange = this.handleBulkChange.bind(this);
 
         this.state = {
           isOpened: false
@@ -373,6 +380,18 @@ export const HocQuickEdit =
         );
       }
 
+      // autoFill 是通过 onBulkChange 触发的
+      // quickEdit 需要拦截这个，否则修改的数据就是错的
+      handleBulkChange(values: any) {
+        const {onQuickChange, quickEdit} = this.props;
+        onQuickChange(
+          values,
+          (quickEdit as QuickEditConfig).saveImmediately,
+          false,
+          quickEdit as QuickEditConfig
+        );
+      }
+
       openQuickEdit() {
         currentOpened = this;
         this.setState({
@@ -587,9 +606,10 @@ export const HocQuickEdit =
         ) {
           return render('inline-form-item', schema.body[0], {
             mode: 'normal',
-            value: value ?? '',
+            value: getPropValue(this.props) ?? '',
             onChange: this.handleFormItemChange,
-            ref: this.formItemRef,
+            onBulkChange: this.handleBulkChange,
+            formItemRef: this.formItemRef,
             defaultStatic: false
           });
         }
@@ -602,6 +622,7 @@ export const HocQuickEdit =
           simpleMode: true,
           onInit: this.handleInit,
           onChange: this.handleChange,
+          onBulkChange: this.handleBulkChange,
           formLazyChange: false,
           canAccessSuperData,
           disabled,
@@ -631,7 +652,7 @@ export const HocQuickEdit =
           // 此处的readOnly会导致组件值无法传递出去，如 value: "${a + b}" 这样的 value 变化需要同步到数据域
           // || readOnly
         ) {
-          return <Component {...this.props} />;
+          return <Component {...this.props} formItemRef={this.formItemRef} />;
         }
 
         if (

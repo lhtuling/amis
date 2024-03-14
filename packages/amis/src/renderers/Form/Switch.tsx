@@ -144,7 +144,8 @@ export default class SwitchControl extends React.Component<SwitchProps, any> {
       onChange,
       disabled,
       loading,
-      loadingConfig
+      loadingConfig,
+      testIdBuilder
     } = this.props;
 
     const {on, off} = this.getResult();
@@ -164,6 +165,7 @@ export default class SwitchControl extends React.Component<SwitchProps, any> {
             size={size as any}
             loading={loading}
             loadingConfig={loadingConfig}
+            testIdBuilder={testIdBuilder}
           />
         )}
       </div>

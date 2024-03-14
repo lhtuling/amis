@@ -5,7 +5,9 @@ import {
   ITableStore,
   RendererEvent,
   RendererProps,
+  TestIdBuilder,
   autobind,
+  setVariable,
   traceProps
 } from 'amis-core';
 import {Action} from '../Action';
@@ -43,6 +45,8 @@ interface TableRowProps extends Pick<RendererProps, 'render'> {
   regionPrefix?: string;
   checkOnItemClick?: boolean;
   ignoreFootableContent?: boolean;
+  testIdBuilder?: (key: string) => TestIdBuilder;
+  rowPath: string; // 整体行的路径，树形时需要父行序号/当前展开层级下的行序号
   [propName: string]: any;
 }
 
@@ -157,15 +161,10 @@ export class TableRow extends React.PureComponent<
     }
 
     const {item, onQuickChange} = this.props;
+    const data: any = {};
+    setVariable(data, name, value);
 
-    onQuickChange?.(
-      item,
-      {
-        [name]: value
-      },
-      submit,
-      changePristine
-    );
+    onQuickChange?.(item, data, submit, changePristine);
   }
 
   render() {
@@ -202,7 +201,8 @@ export class TableRow extends React.PureComponent<
       checkdisable,
       trRef,
       isNested,
-
+      testIdBuilder,
+      rowPath,
       ...rest
     } = this.props;
 
@@ -265,6 +265,7 @@ export class TableRow extends React.PureComponent<
                               width: null,
                               rowIndex: itemIndex,
                               colIndex: column.index,
+                              rowPath,
                               key: column.index,
                               onAction: this.handleAction,
                               onQuickChange: this.handleQuickChange,
@@ -318,6 +319,7 @@ export class TableRow extends React.PureComponent<
           },
           `Table-tr--${depth}th`
         )}
+        {...testIdBuilder?.(rowPath)?.getTestId()}
       >
         {columns.map(column =>
           appeard ? (
@@ -325,6 +327,7 @@ export class TableRow extends React.PureComponent<
               ...rest,
               rowIndex: itemIndex,
               colIndex: column.index,
+              rowPath,
               key: column.id,
               onAction: this.handleAction,
               onQuickChange: this.handleQuickChange,

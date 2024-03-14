@@ -1,6 +1,12 @@
 import React from 'react';
 import {findDOMNode} from 'react-dom';
-import {Renderer, RendererProps, buildStyle} from 'amis-core';
+import {
+  Renderer,
+  RendererProps,
+  buildStyle,
+  evalExpressionWithConditionBuilder,
+  getPropValue
+} from 'amis-core';
 import {SchemaNode, Schema, ActionObject} from 'amis-core';
 import {Button, Spinner, SpinnerExtraProps} from 'amis-ui';
 import {ListStore, IListStore} from 'amis-core';
@@ -266,13 +272,14 @@ export default class Cards extends React.Component<GridProps, object> {
 
   static syncItems(store: IListStore, props: GridProps, prevProps?: GridProps) {
     const source = props.source;
-    const value = props.value || props.items;
+    const value = getPropValue(props, (props: GridProps) => props.items);
     let items: Array<object> = [];
     let updateItems = false;
 
     if (
       Array.isArray(value) &&
-      (!prevProps || (prevProps.value || prevProps.items) !== value)
+      (!prevProps ||
+        getPropValue(prevProps, (props: GridProps) => props.items) !== value)
     ) {
       items = value;
       updateItems = true;
@@ -560,7 +567,12 @@ export default class Cards extends React.Component<GridProps, object> {
 
           const parent = e.to as HTMLElement;
           if (e.oldIndex < parent.childNodes.length - 1) {
-            parent.insertBefore(e.item, parent.childNodes[e.oldIndex]);
+            parent.insertBefore(
+              e.item,
+              parent.childNodes[
+                e.oldIndex > e.newIndex ? e.oldIndex + 1 : e.oldIndex
+              ]
+            );
           } else {
             parent.appendChild(e.item);
           }
@@ -1020,8 +1032,18 @@ export default class Cards extends React.Component<GridProps, object> {
           {
             'Cards--unsaved': !!store.modified || !!store.moved
           },
-          setThemeClassName('baseControlClassName', id, themeCss),
-          setThemeClassName('wrapperCustomStyle', id, wrapperCustomStyle)
+          setThemeClassName({
+            ...this.props,
+            name: 'baseControlClassName',
+            id,
+            themeCss
+          }),
+          setThemeClassName({
+            ...this.props,
+            name: 'wrapperCustomStyle',
+            id,
+            themeCss: wrapperCustomStyle
+          })
         )}
         style={buildStyle(style, data)}
       >
@@ -1056,6 +1078,7 @@ export default class Cards extends React.Component<GridProps, object> {
         <Spinner loadingConfig={loadingConfig} overlay show={loading} />
 
         <CustomStyle
+          {...this.props}
           config={{
             wrapperCustomStyle,
             id,
@@ -1091,4 +1114,38 @@ export class CardsRenderer extends Cards {
   avatarClassName?: string;
   body?: SchemaNode;
   actions?: Array<ActionObject>;
+
+  async setData(
+    values: any,
+    replace?: boolean,
+    index?: number | string,
+    condition?: any
+  ) {
+    const {store} = this.props;
+
+    if (index !== undefined) {
+      let items = store.items;
+      const indexs = String(index).split(',');
+      indexs.forEach(i => {
+        const intIndex = Number(i);
+        items[intIndex]?.updateData(values);
+      });
+    } else if (condition !== undefined) {
+      let items = store.items;
+      const len = items.length;
+      for (let i = 0; i < len; i++) {
+        const item = items[i];
+        const isUpdate = await evalExpressionWithConditionBuilder(
+          condition,
+          item.data
+        );
+
+        if (isUpdate) {
+          item.updateData(values);
+        }
+      }
+    } else {
+      return store.updateData(values, undefined, replace);
+    }
+  }
 }

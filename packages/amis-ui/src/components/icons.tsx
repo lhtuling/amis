@@ -262,9 +262,20 @@ export function Icon({
   iconContent,
   vendor,
   cx: iconCx,
-  onClick = () => {},
-  onMouseEnter = () => {},
-  onMouseLeave = () => {},
+  onClick,
+  onMouseEnter,
+  onMouseLeave,
+  onMouseOver,
+  onMouseOut,
+  onMouseDown,
+  onMouseUp,
+  onMouseMove,
+  onBlur,
+  onFocus,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
+  onTouchCancel,
   style
 }: {
   icon: string;
@@ -280,18 +291,34 @@ export function Icon({
     return null;
   }
 
+  // 支持的事件
+  let events: any = {
+    onClick,
+    onMouseEnter,
+    onMouseLeave,
+    onMouseOver,
+    onMouseOut,
+    onMouseDown,
+    onMouseUp,
+    onMouseMove,
+    onBlur,
+    onFocus,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    onTouchCancel
+  };
+
   // 直接的icon dom
   if (React.isValidElement(icon)) {
     return React.cloneElement(icon, {
+      ...events,
       ...((icon.props as any) || {}),
       className: cxClass(
         cx(className, classNameProp),
         (icon.props as any).className
       ),
-      style,
-      onClick,
-      onMouseEnter,
-      onMouseLeave
+      style
     });
   }
 
@@ -317,9 +344,7 @@ export function Icon({
 
     return (
       <div
-        onClick={onClick}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        {...events}
         className={cx(iconContent, className, classNameProp)}
         ref={refFn}
         style={style}
@@ -332,9 +357,7 @@ export function Icon({
   if (Component) {
     return (
       <Component
-        onClick={onClick}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        {...events}
         className={cx(className, `icon-${icon}`, classNameProp)}
         // @ts-ignore
         icon={icon}
@@ -366,9 +389,7 @@ export function Icon({
     } else {
       return (
         <svg
-          onClick={onClick}
-          onMouseEnter={onMouseEnter}
-          onMouseLeave={onMouseLeave}
+          {...events}
           className={cx('icon', 'icon-object', className, classNameProp)}
           style={style}
         >
@@ -382,9 +403,7 @@ export function Icon({
   if (typeof icon === 'string' && icon.startsWith('<svg')) {
     const svgStr = /<svg .*?>(.*?)<\/svg>/.exec(icon);
     const svgHTML = createElement('svg', {
-      onClick,
-      onMouseEnter,
-      onMouseLeave,
+      ...events,
       className: cx('icon', className, classNameProp),
       style,
       dangerouslySetInnerHTML: {__html: svgStr ? svgStr[1] : ''},
@@ -398,9 +417,7 @@ export function Icon({
   if (isURLIcon) {
     return (
       <img
-        onClick={onClick}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        {...events}
         className={cx(`${classPrefix}Icon`, className, classNameProp)}
         src={icon}
         style={style}
@@ -425,9 +442,7 @@ export function Icon({
   if (isIconfont) {
     return (
       <i
-        onClick={onClick}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        {...events}
         className={cx(icon, className, classNameProp, iconPrefix)}
         style={style}
       />

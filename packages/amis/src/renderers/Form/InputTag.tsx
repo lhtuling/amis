@@ -506,6 +506,8 @@ export default class TagControl extends React.PureComponent<
       this.setState({
         inputValue: ''
       });
+    } else if (!value && evt.key === 'Enter') {
+      this.handleBlur(evt);
     }
   }
 
@@ -575,7 +577,8 @@ export default class TagControl extends React.PureComponent<
       valueField,
       env,
       mobileUI,
-      labelField
+      labelField,
+      testIdBuilder
     } = this.props;
 
     const term = this.state.inputValue;
@@ -633,6 +636,7 @@ export default class TagControl extends React.PureComponent<
                 popOverContainer={popOverContainer || env.getModalContainer}
                 allowInput={!mobileUI || (mobileUI && !options?.length)}
                 mobileUI={mobileUI}
+                testIdBuilder={testIdBuilder?.getChild('resule-box')}
               >
                 {loading ? (
                   <Spinner loadingConfig={loadingConfig} size="sm" />
@@ -714,6 +718,7 @@ export default class TagControl extends React.PureComponent<
                         options={finnalOptions}
                         itemRender={this.renderItem}
                         highlightIndex={highlightedIndex}
+                        testIdBuilder={testIdBuilder?.getChild('options')}
                         getItemProps={({
                           item,
                           index
