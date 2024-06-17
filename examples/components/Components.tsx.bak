@@ -998,6 +998,15 @@ export const components = [
         )
       },
       {
+        label: 'OfficeViewer Excel 渲染',
+        path: '/zh-CN/components/office-viewer-excel',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/office-viewer-excel.md').then(
+            wrapDoc
+          )
+        )
+      },
+      {
         label: 'PDFViewer 渲染',
         path: '/zh-CN/components/pdf-viewer',
         component: React.lazy(() =>

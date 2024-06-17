@@ -59,19 +59,7 @@ export default class Wrapper extends React.Component<WrapperProps, object> {
   }
 
   render() {
-<<<<<<< HEAD
-    const {
-      className,
-      size,
-      classnames: cx,
-      style,
-      data,
-      wrap,
-      testid
-    } = this.props;
-=======
     const {className, size, classnames: cx, style, data, wrap, id} = this.props;
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
 
     // 期望不要使用，给 form controls 用法自动转换时使用的。
     if (wrap === false) {

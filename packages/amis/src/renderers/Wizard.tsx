@@ -650,14 +650,6 @@ export default class Wizard extends React.Component<WizardProps, WizardState> {
       this.form.reset();
     } else if (action.actionType === 'dialog') {
       store.setCurrentAction(action, this.props.resolveDefinitions);
-<<<<<<< HEAD
-      store.openDialog(
-        data,
-        undefined,
-        action.callback,
-        delegate || (this.context as any)
-      );
-=======
       return new Promise<any>(resolve => {
         store.openDialog(
           data,
@@ -672,7 +664,6 @@ export default class Wizard extends React.Component<WizardProps, WizardState> {
           delegate || (this.context as any)
         );
       });
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     } else if (action.actionType === 'ajax') {
       if (!action.api) {
         return env.alert(`当 actionType 为 ajax 时，请设置 api 属性`);

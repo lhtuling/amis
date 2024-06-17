@@ -42,10 +42,7 @@ interface PdfViewerState {
   loading: boolean;
   inited: boolean;
   width?: number;
-<<<<<<< HEAD
-=======
   error: boolean;
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
 }
 
 export default class PdfViewer extends React.Component<
@@ -60,12 +57,8 @@ export default class PdfViewer extends React.Component<
     super(props);
     this.state = {
       inited: false,
-<<<<<<< HEAD
-      loading: false
-=======
       loading: false,
       error: false
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     };
   }
 
@@ -81,11 +74,6 @@ export default class PdfViewer extends React.Component<
   componentDidUpdate(prevProps: PdfViewerProps) {
     const props = this.props;
 
-<<<<<<< HEAD
-    if (isApiOutdated(prevProps.src, props.src, prevProps.data, props.data)) {
-      this.abortLoad();
-      this.fetchPdf();
-=======
     if (
       isApiOutdated(prevProps.src, props.src, prevProps.data, props.data) ||
       resolveVariableAndFilter(props.src, props.data, '| raw') !==
@@ -95,7 +83,6 @@ export default class PdfViewer extends React.Component<
       setTimeout(() => {
         this.fetchPdf();
       }, 0);
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     }
 
     if (getVariable(props.data, props.name)) {
@@ -128,10 +115,7 @@ export default class PdfViewer extends React.Component<
   @autobind
   async renderPdf() {
     const {src, name, data} = this.props;
-<<<<<<< HEAD
-=======
     this.setState({error: false});
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     // src 优先级高于 name
     if (src) {
       if (!this.file) {
@@ -145,11 +129,6 @@ export default class PdfViewer extends React.Component<
   @autobind
   async fetchPdf() {
     const {env, src, data, translate: __} = this.props;
-<<<<<<< HEAD
-    const finalSrc = src
-      ? resolveVariableAndFilter(src, data, '| raw')
-      : undefined;
-=======
     let finalSrc;
 
     if (src) {
@@ -163,7 +142,6 @@ export default class PdfViewer extends React.Component<
         finalSrc = resolveSrc.value;
       }
     }
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
 
     if (!finalSrc) {
       console.warn('file src is empty');
@@ -172,12 +150,8 @@ export default class PdfViewer extends React.Component<
 
     this.setState({
       inited: true,
-<<<<<<< HEAD
-      loading: true
-=======
       loading: true,
       error: false
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     });
 
     try {
@@ -188,10 +162,7 @@ export default class PdfViewer extends React.Component<
       this.file = res.data;
       this.forceUpdate();
     } catch (error) {
-<<<<<<< HEAD
-=======
       this.setState({error: true});
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
       console.error(error);
     } finally {
       this.setState({
@@ -218,22 +189,14 @@ export default class PdfViewer extends React.Component<
         });
         this.forceUpdate();
       };
-<<<<<<< HEAD
-=======
       reader.onerror = _e => {
         this.setState({error: true});
       };
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
       reader.readAsArrayBuffer(file);
       this.reader = reader;
     }
   }
 
-<<<<<<< HEAD
-  render() {
-    const {className, classnames: cx, height, background} = this.props;
-    const {loading, inited} = this.state;
-=======
   @autobind
   renderEmpty() {
     const {src, name} = this.props;
@@ -285,19 +248,13 @@ export default class PdfViewer extends React.Component<
       src
     } = this.props;
     const {loading, inited, error} = this.state;
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     const width = Math.max(this.props.width || this.state.width, 300);
 
     return (
       <div ref={this.wrapper}>
-<<<<<<< HEAD
-        <Suspense fallback={<div>...</div>}>
-          {inited ? (
-=======
         {this.renderEmpty()}
         <Suspense fallback={<div>...</div>}>
           {inited && !error ? (
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
             <PdfView
               file={this.file}
               loading={loading}
@@ -309,10 +266,7 @@ export default class PdfViewer extends React.Component<
             />
           ) : null}
         </Suspense>
-<<<<<<< HEAD
-=======
         {this.renderError()}
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
       </div>
     );
   }

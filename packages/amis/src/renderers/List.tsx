@@ -3,14 +3,9 @@ import {findDOMNode} from 'react-dom';
 import Sortable from 'sortablejs';
 import omit from 'lodash/omit';
 import {
-<<<<<<< HEAD
-  evalExpressionWithConditionBuilder,
-  filterClassNameObject,
-=======
   ScopedContext,
   filterClassNameObject,
   getMatchedEventTargets,
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
   getPropValue
 } from 'amis-core';
 import {Button, Spinner, Checkbox, Icon, SpinnerExtraProps} from 'amis-ui';
@@ -1100,8 +1095,6 @@ export class ListRenderer extends List {
   actions?: Array<ActionObject>;
   onCheck: (item: IItem) => void;
 
-<<<<<<< HEAD
-=======
   static contextType = ScopedContext;
   declare context: React.ContextType<typeof ScopedContext>;
 
@@ -1167,7 +1160,6 @@ export class ListRenderer extends List {
     }
   }
 
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
   async setData(
     values: any,
     replace?: boolean,
@@ -1176,29 +1168,6 @@ export class ListRenderer extends List {
   ) {
     const {store} = this.props;
 
-<<<<<<< HEAD
-    if (index !== undefined) {
-      let items = store.items;
-      const indexs = String(index).split(',');
-      indexs.forEach(i => {
-        const intIndex = Number(i);
-        items[intIndex]?.updateData(values);
-      });
-    } else if (condition !== undefined) {
-      let items = store.items;
-      const len = items.length;
-      for (let i = 0; i < len; i++) {
-        const item = items[i];
-        const isUpdate = await evalExpressionWithConditionBuilder(
-          condition,
-          item.data
-        );
-
-        if (isUpdate) {
-          item.updateData(values);
-        }
-      }
-=======
     if (index !== undefined || condition !== undefined) {
       const targets = await getMatchedEventTargets<IItem>(
         store.items,
@@ -1209,13 +1178,10 @@ export class ListRenderer extends List {
       targets.forEach(target => {
         target.updateData(values);
       });
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     } else {
       return store.updateData(values, undefined, replace);
     }
   }
-<<<<<<< HEAD
-=======
 
   getData() {
     const {store, data} = this.props;
@@ -1265,7 +1231,6 @@ export class ListRenderer extends List {
         return this.handleAction(undefined, action, data);
     }
   }
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
 }
 
 export interface ListItemProps

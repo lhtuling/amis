@@ -481,17 +481,6 @@ export default class Page extends React.Component<PageProps> {
 
     if (action.actionType === 'dialog') {
       store.setCurrentAction(action, this.props.resolveDefinitions);
-<<<<<<< HEAD
-      store.openDialog(
-        ctx,
-        undefined,
-        action.callback,
-        delegate || (this.context as any)
-      );
-    } else if (action.actionType === 'drawer') {
-      store.setCurrentAction(action, this.props.resolveDefinitions);
-      store.openDrawer(ctx, undefined, undefined, delegate);
-=======
       return new Promise<any>(resolve => {
         store.openDialog(
           ctx,
@@ -522,7 +511,6 @@ export default class Page extends React.Component<PageProps> {
           delegate
         );
       });
->>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     } else if (action.actionType === 'ajax') {
       store.setCurrentAction(action, this.props.resolveDefinitions);
 
