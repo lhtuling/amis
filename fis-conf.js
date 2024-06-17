@@ -92,6 +92,7 @@ fis.set('project.files', [
   '/examples/static/*.jpg',
   '/examples/static/*.jpeg',
   '/examples/static/*.docx',
+  '/examples/static/*.xlsx',
   '/examples/static/photo/*.jpeg',
   '/examples/static/photo/*.png',
   '/examples/static/audio/*.mp3',
@@ -145,7 +146,20 @@ fis.match('/node_modules/**.{js,cjs}', {
   isMod: true,
   rExt: 'js'
 });
-fis.set('project.fileType.text', 'cjs');
+
+fis.match('pdfjs-dist/**.mjs', {
+  isMod: true,
+  rExt: 'js',
+  parser: fis.plugin('typescript', {
+    sourceMap: false,
+    importHelpers: true,
+    esModuleInterop: true,
+    emitDecoratorMetadata: false,
+    experimentalDecorators: false
+  })
+});
+
+fis.set('project.fileType.text', 'cjs,mjs');
 
 fis.match('tinymce/{tinymce.js,plugins/**.js,themes/silver/theme.js}', {
   ignoreDependencies: true
@@ -253,7 +267,7 @@ fis.match('*.html:jsx', {
 
 // 这些用了 esm
 fis.match(
-  '{echarts/**.js,zrender/**.js,echarts-wordcloud/**.js,markdown-it-html5-media/**.js,react-hook-form/**.js,qrcode.react/**.js,axios/**.js,downshift/**.js,react-intersection-observer/**.js}',
+  '{echarts/**.js,zrender/**.js,echarts-wordcloud/**.js,markdown-it-html5-media/**.js,react-hook-form/**.js,qrcode.react/**.js,axios/**.js,downshift/**.js,react-intersection-observer/**.js,react-pdf/**.js}',
   {
     parser: fis.plugin('typescript', {
       sourceMap: false,
@@ -342,7 +356,7 @@ fis.hook('node_modules', {
 });
 fis.hook('commonjs', {
   sourceMap: false,
-  extList: ['.js', '.jsx', '.tsx', '.ts', '.cjs'],
+  extList: ['.js', '.jsx', '.tsx', '.ts', '.cjs', '.mjs'],
   paths: {
     'monaco-editor': '/examples/loadMonacoEditor'
   }
@@ -504,6 +518,8 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         '!amis-ui/lib/components/Tinymce.js',
         '!amis-ui/lib/components/ColorPicker.js',
         '!amis-ui/lib/components/PdfViewer.js',
+        '!react-pdf/**',
+        '!pdfjs-dist/**',
         '!react-color/**',
         '!material-colors/**',
         '!reactcss/**',
@@ -525,7 +541,7 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         '!markdown-it-html5-media/**',
         '!punycode/**',
         '!office-viewer/**',
-        '!fflate/**',
+        '!numfmt/**',
         '!amis-formula/lib/doc.js'
       ],
 
@@ -563,10 +579,7 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         'tinycolor2/**'
       ],
 
-      'pdf-viewer.js': [
-        'amis-ui/lib/components/PdfViewer.js',
-        'pdfjs-dist/build/pdf.worker.min.js'
-      ],
+      'pdf-viewer.js': ['amis-ui/lib/components/PdfViewer.js', 'react-pdf/**'],
 
       'cropperjs.js': ['cropperjs/**', 'react-cropper/**'],
 
@@ -579,7 +592,7 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         'echarts-wordcloud/**'
       ],
 
-      'office-viewer.js': ['office-viewer/**', 'fflate/**'],
+      'office-viewer.js': ['office-viewer/**', 'numfmt/**'],
       'json-view.js': 'react-json-view/**',
       'fomula-doc.js': 'amis-formula/lib/doc.js',
 
@@ -590,8 +603,8 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         '!mpegts.js/**',
         '!hls.js/**',
         '!froala-editor/**',
+        '!react-pdf/**',
         '!pdfjs-dist/**',
-
         '!amis-ui/lib/components/RichText.js',
         '!zrender/**',
         '!echarts/**',
@@ -608,7 +621,7 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         '!markdown-it/**',
         '!markdown-it-html5-media/**',
         '!office-viewer/**',
-        '!fflate/**'
+        '!numfmt/**'
       ]
     }),
     postpackager: [
@@ -697,7 +710,9 @@ if (fis.project.currentMedia() === 'publish-sdk') {
   const ghPages = fis.media('gh-pages');
   ghPages.set('project.files', [
     'examples/index.html',
-    '/examples/static/*.docx'
+    'examples/app/index.html',
+    '/examples/static/*.docx',
+    '/examples/static/*.xlsx'
   ]);
 
   ghPages.match('*.scss', {
@@ -841,7 +856,7 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         '!markdown-it-html5-media/**',
         '!punycode/**',
         '!amis-formula/**',
-        '!fflate/**',
+        '!numfmt/**',
         '!office-viewer/**',
         '!amis-core/**',
         '!amis-ui/**',
@@ -908,7 +923,7 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         '!/examples/components/EChartsEditor/Common.tsx'
       ],
 
-      'pkg/office-viewer.js': ['office-viewer/**', 'fflate/**'],
+      'pkg/office-viewer.js': ['office-viewer/**', 'numfmt/**'],
 
       'pkg/rest.js': [
         '**.{js,jsx,ts,tsx}',
@@ -933,7 +948,7 @@ if (fis.project.currentMedia() === 'publish-sdk') {
         '!uc.micro/**',
         '!markdown-it/**',
         '!markdown-it-html5-media/**',
-        '!fflate/**'
+        '!numfmt/**'
       ],
 
       'pkg/npm.css': ['node_modules/*/**.css', '!monaco-editor/**', '!amis/**'],
@@ -1018,7 +1033,7 @@ if (fis.project.currentMedia() === 'publish-sdk') {
     useHash: true
   });
 
-  ghPages.match('*.docx', {
+  ghPages.match('*.{docx,xlsx}', {
     useHash: false
   });
 

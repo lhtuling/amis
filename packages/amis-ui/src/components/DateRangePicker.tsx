@@ -6,7 +6,7 @@
 
 import React from 'react';
 import {findDOMNode} from 'react-dom';
-import moment, {unitOfTime} from 'moment';
+import moment, {locale, unitOfTime} from 'moment';
 import omit from 'lodash/omit';
 import kebabCase from 'lodash/kebabCase';
 import {
@@ -74,6 +74,7 @@ export interface DateRangePickerProps extends ThemeProps, LocaleProps {
   timeFormat?: string;
   resetValue?: any;
   popOverContainer?: any;
+  popOverContainerSelector?: string;
   dateFormat?: string;
   embed?: boolean;
   viewMode?: ViewMode;
@@ -528,7 +529,8 @@ export class DateRangePicker extends React.Component<
     format: string,
     joinValues: boolean,
     delimiter: string,
-    data: any
+    data: any,
+    utc?: boolean
   ) {
     if (!value) {
       return {
@@ -541,8 +543,8 @@ export class DateRangePicker extends React.Component<
       value = value.split(delimiter);
     }
 
-    const startDate = filterDate(value?.[0], data, format);
-    const endDate = filterDate(value?.[1], data, format);
+    const startDate = filterDate(value?.[0], data, format, utc);
+    const endDate = filterDate(value?.[1], data, format, utc);
 
     /**
      * 不合法的value输入都丢弃
@@ -608,14 +610,16 @@ export class DateRangePicker extends React.Component<
       displayFormat,
       dateFormat,
       timeFormat,
-      data
+      data,
+      utc
     } = this.props;
     const {startDate, endDate} = DateRangePicker.unFormatValue(
       value,
       valueFormat || (format as string),
       joinValues,
       delimiter,
-      data
+      data,
+      utc
     );
 
     let curDateFormat = dateFormat ?? '';
@@ -690,7 +694,8 @@ export class DateRangePicker extends React.Component<
       dateFormat,
       timeFormat,
       delimiter,
-      data
+      data,
+      utc
     } = props;
     if (
       prevProps.displayFormat != displayFormat ||
@@ -726,7 +731,8 @@ export class DateRangePicker extends React.Component<
         valueFormat || (format as string),
         joinValues,
         delimiter,
-        data
+        data,
+        utc
       );
       this.setState({
         startDate,
@@ -817,14 +823,16 @@ export class DateRangePicker extends React.Component<
         delimiter,
         inputFormat,
         displayFormat,
-        data
+        data,
+        utc
       } = this.props;
       const {startDate, endDate} = DateRangePicker.unFormatValue(
         value,
         valueFormat || (format as string),
         joinValues,
         delimiter,
-        data
+        data,
+        utc
       );
       this.setState({
         startDate,
@@ -1445,9 +1453,8 @@ export class DateRangePicker extends React.Component<
   }
 
   // 重置
-  reset() {
+  reset(resetValue?: any) {
     const {
-      resetValue,
       onChange,
       format,
       valueFormat,
@@ -1455,19 +1462,20 @@ export class DateRangePicker extends React.Component<
       delimiter,
       inputFormat,
       displayFormat,
-      data
+      data,
+      utc
     } = this.props;
-    if (!resetValue) {
-      return;
-    }
+
+    const tmpResetValue = resetValue ?? this.props.resetValue;
     const {startDate, endDate} = DateRangePicker.unFormatValue(
-      resetValue,
+      tmpResetValue,
       valueFormat || (format as string),
       joinValues,
       delimiter,
-      data
+      data,
+      utc
     );
-    onChange(resetValue);
+    onChange?.(tmpResetValue);
     this.setState({
       startInputValue: startDate?.format(displayFormat || inputFormat),
       endInputValue: endDate?.format(displayFormat || inputFormat)
@@ -1957,6 +1965,21 @@ export class DateRangePicker extends React.Component<
     );
   }
 
+  getDefaultDate() {
+    let {value, data, valueFormat, format, delimiter} = this.props;
+    if (value) {
+      let startDate = filterDate(
+        Array.isArray(value)
+          ? value[0] || value[1]
+          : String(value).split(delimiter)?.[0],
+        data,
+        valueFormat || (format as string)
+      );
+      return startDate;
+    }
+    return undefined;
+  }
+
   render() {
     const {
       className,
@@ -1967,6 +1990,7 @@ export class DateRangePicker extends React.Component<
       startPlaceholder,
       endPlaceholder,
       popOverContainer,
+      popOverContainerSelector,
       inputFormat,
       displayFormat,
       joinValues,
@@ -1988,7 +2012,8 @@ export class DateRangePicker extends React.Component<
       shortcuts,
       label,
       animation,
-      testIdBuilder
+      testIdBuilder,
+      locale
     } = this.props;
     const useCalendarMobile =
       mobileUI && ['days', 'months', 'quarters'].indexOf(viewMode) > -1;
@@ -2004,8 +2029,10 @@ export class DateRangePicker extends React.Component<
     const __ = this.props.translate;
     const calendarMobile = (
       <CalendarMobile
+        popOverContainer={popOverContainer}
         timeFormat={curTimeFormat}
         displayForamt={displayFormat || inputFormat}
+        defaultDate={this.getDefaultDate()}
         startDate={startDate}
         endDate={endDate}
         minDate={minDate}
@@ -2019,6 +2046,7 @@ export class DateRangePicker extends React.Component<
         confirm={this.confirm}
         onChange={this.handleMobileChange}
         footerExtra={this.renderShortcuts(ranges || shortcuts)}
+        locale={locale}
         showViewMode={
           viewMode === 'quarters' || viewMode === 'months' ? 'years' : 'months'
         }
@@ -2148,6 +2176,7 @@ export class DateRangePicker extends React.Component<
               target={() => this.dom.current}
               onHide={this.close}
               container={popOverContainer || (() => findDOMNode(this))}
+              containerSelector={popOverContainerSelector}
               rootClose={false}
               placement={overlayPlacement}
               show

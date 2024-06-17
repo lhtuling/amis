@@ -3,12 +3,11 @@
  */
 
 import React from 'react';
-import {autobind, FormControlProps} from 'amis-core';
+import {autobind, FormControlProps, isExpression} from 'amis-core';
 import cx from 'classnames';
 import {FormItem, Button, Icon, PickerContainer} from 'amis';
-import {FormulaEditor} from 'amis-ui';
+import {FormulaCodeEditor, FormulaEditor, InputBox} from 'amis-ui';
 import type {VariableItem} from 'amis-ui';
-import {renderFormulaValue} from './FormulaControl';
 import {reaction} from 'mobx';
 import {getVariables} from 'amis-editor-core';
 
@@ -76,6 +75,12 @@ export default class ExpressionFormulaControl extends React.Component<
         this.appCorpusData = editorStore?.appCorpusData;
       }
     );
+
+    // 要高亮，初始就要加载
+    const variablesArr = await getVariables(this);
+    this.setState({
+      variables: variablesArr
+    });
   }
 
   async componentDidUpdate(prevProps: ExpressionFormulaControlProps) {
@@ -134,13 +139,7 @@ export default class ExpressionFormulaControl extends React.Component<
   render() {
     const {value, className, variableMode, header, size, ...rest} = this.props;
     const {formulaPickerValue, variables} = this.state;
-
-    const highlightValue = FormulaEditor.highlightValue(
-      formulaPickerValue,
-      variables
-    ) || {
-      html: formulaPickerValue
-    };
+    const isNewExpression = isExpression(value);
 
     // 自身字段
     const selfName = this.props?.data?.name;
@@ -173,20 +172,44 @@ export default class ExpressionFormulaControl extends React.Component<
           size={size ?? 'lg'}
         >
           {({onClick}: {onClick: (e: React.MouseEvent) => any}) =>
-            formulaPickerValue ? (
+            value && !isNewExpression ? (
+              <InputBox value={value} onChange={rest.onChange} />
+            ) : formulaPickerValue ? (
               <Button
                 className="btn-configured"
                 tooltip={{
-                  placement: 'top',
+                  placement: 'left',
                   tooltipTheme: 'dark',
                   mouseLeaveDelay: 20,
                   content: value,
                   tooltipClassName: 'btn-configured-tooltip',
-                  children: () => renderFormulaValue(highlightValue)
+                  children: () => (
+                    <FormulaCodeEditor
+                      readOnly
+                      value={
+                        typeof value === 'string'
+                          ? value.substring(2, value.length - 1)
+                          : ''
+                      }
+                      variables={variables}
+                      evalMode={true}
+                      editorTheme="dark"
+                      editorOptions={{
+                        lineNumbers: false
+                      }}
+                    />
+                  )
                 }}
                 onClick={e => this.handleOnClick(e, onClick)}
               >
-                {renderFormulaValue(highlightValue)}
+                <FormulaCodeEditor
+                  singleLine
+                  readOnly
+                  highlightMode="expression"
+                  value={value}
+                  variables={variables}
+                  evalMode={false}
+                />
                 <Icon
                   icon="input-clear"
                   className="icon"
@@ -196,6 +219,7 @@ export default class ExpressionFormulaControl extends React.Component<
             ) : (
               <>
                 <Button
+                  size="sm"
                   className="btn-set-expression"
                   onClick={e => this.handleOnClick(e, onClick)}
                 >

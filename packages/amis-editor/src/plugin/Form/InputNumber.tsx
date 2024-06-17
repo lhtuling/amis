@@ -208,7 +208,6 @@ export class NumberControlPlugin extends BasePlugin {
                   label: '最大值',
                   valueType: 'number'
                 }),
-
                 {
                   type: 'input-number',
                   name: 'step',
@@ -216,9 +215,10 @@ export class NumberControlPlugin extends BasePlugin {
                   precision: 6,
                   step: 0.000001,
                   min: 0,
-                  value: 1
+                  value: 1,
+                  precision: '${precision}',
+                  strictMode: false
                 },
-
                 {
                   type: 'input-number',
                   name: 'precision',

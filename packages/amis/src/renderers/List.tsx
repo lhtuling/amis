@@ -3,8 +3,14 @@ import {findDOMNode} from 'react-dom';
 import Sortable from 'sortablejs';
 import omit from 'lodash/omit';
 import {
+<<<<<<< HEAD
   evalExpressionWithConditionBuilder,
   filterClassNameObject,
+=======
+  ScopedContext,
+  filterClassNameObject,
+  getMatchedEventTargets,
+>>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
   getPropValue
 } from 'amis-core';
 import {Button, Spinner, Checkbox, Icon, SpinnerExtraProps} from 'amis-ui';
@@ -47,7 +53,7 @@ import {
 } from '../Schema';
 import {ActionSchema} from './Action';
 import {SchemaRemark} from './Remark';
-import type {IItem} from 'amis-core';
+import type {IItem, IScopedContext} from 'amis-core';
 import type {OnEventProps} from 'amis-core';
 import find from 'lodash/find';
 
@@ -372,10 +378,10 @@ export default class List extends React.Component<ListProps, object> {
         ? resolveVariableAndFilter(source, prevProps.data, '| raw')
         : null;
 
-      if (prev && prev === resolved) {
+      if (prev === resolved) {
         updateItems = false;
-      } else if (Array.isArray(resolved)) {
-        items = resolved;
+      } else {
+        items = Array.isArray(resolved) ? resolved : [];
         updateItems = true;
       }
     }
@@ -441,7 +447,11 @@ export default class List extends React.Component<ListProps, object> {
     return findDOMNode(this);
   }
 
-  handleAction(e: React.UIEvent<any>, action: ActionObject, ctx: object) {
+  handleAction(
+    e: React.UIEvent<any> | undefined,
+    action: ActionObject,
+    ctx: object
+  ) {
     const {data, dispatchEvent, onAction, onEvent} = this.props;
     const hasClickActions =
       onEvent &&
@@ -543,7 +553,8 @@ export default class List extends React.Component<ListProps, object> {
     const unModifiedItems = store.items
       .filter(item => !item.modified)
       .map(item => item.data);
-    onSave(
+
+    return onSave(
       items,
       diff,
       itemIndexes,
@@ -1089,6 +1100,74 @@ export class ListRenderer extends List {
   actions?: Array<ActionObject>;
   onCheck: (item: IItem) => void;
 
+<<<<<<< HEAD
+=======
+  static contextType = ScopedContext;
+  declare context: React.ContextType<typeof ScopedContext>;
+
+  constructor(props: ListProps, scoped: IScopedContext) {
+    super(props);
+
+    scoped.registerComponent(this);
+  }
+
+  componentWillUnmount(): void {
+    super.componentWillUnmount?.();
+    this.context.unRegisterComponent(this);
+  }
+
+  receive(values: any, subPath?: string) {
+    const scoped = this.context as IScopedContext;
+
+    /**
+     * 因为List在scope上注册，导致getComponentByName查询组件时会优先找到List，和CRUD联动的动作都会失效
+     * 这里先做兼容处理，把动作交给上层的CRUD处理
+     */
+    if (this.props?.host) {
+      // CRUD会把自己透传给List，这样可以保证找到CRUD
+      return this.props.host.receive?.(values, subPath);
+    }
+
+    if (subPath) {
+      return scoped.send(subPath, values);
+    }
+  }
+
+  async reload(
+    subPath?: string,
+    query?: any,
+    ctx?: any,
+    silent?: boolean,
+    replace?: boolean,
+    args?: any
+  ) {
+    const {store} = this.props;
+    if (args?.index || args?.condition) {
+      // 局部刷新
+      // todo 后续考虑添加局部刷新
+      // const targets = await getMatchedEventTargets<IItem>(
+      //   store.items,
+      //   ctx || this.props.data,
+      //   args.index,
+      //   args?.condition
+      // );
+      // await Promise.all(targets.map(target => this.loadDeferredRow(target)));
+      return;
+    }
+
+    const scoped = this.context as IScopedContext;
+
+    if (this.props?.host) {
+      // CRUD会把自己透传给List，这样可以保证找到CRUD
+      return this.props?.host.reload?.(subPath, query, ctx);
+    }
+
+    if (subPath) {
+      return scoped.reload(subPath, ctx);
+    }
+  }
+
+>>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
   async setData(
     values: any,
     replace?: boolean,
@@ -1097,6 +1176,7 @@ export class ListRenderer extends List {
   ) {
     const {store} = this.props;
 
+<<<<<<< HEAD
     if (index !== undefined) {
       let items = store.items;
       const indexs = String(index).split(',');
@@ -1118,10 +1198,74 @@ export class ListRenderer extends List {
           item.updateData(values);
         }
       }
+=======
+    if (index !== undefined || condition !== undefined) {
+      const targets = await getMatchedEventTargets<IItem>(
+        store.items,
+        this.props.data,
+        index,
+        condition
+      );
+      targets.forEach(target => {
+        target.updateData(values);
+      });
+>>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     } else {
       return store.updateData(values, undefined, replace);
     }
   }
+<<<<<<< HEAD
+=======
+
+  getData() {
+    const {store, data} = this.props;
+    return store.getData(data);
+  }
+
+  async doAction(
+    action: ActionObject,
+    ctx: any,
+    throwErrors: boolean,
+    args: any
+  ) {
+    const {store, valueField, data} = this.props;
+
+    const actionType = action?.actionType;
+    switch (actionType) {
+      case 'selectAll':
+        store.clear();
+        store.toggleAll();
+        break;
+      case 'clearAll':
+        store.clear();
+        break;
+      case 'select':
+        const rows = await getMatchedEventTargets<IItem>(
+          store.items,
+          ctx || this.props.data,
+          args.index,
+          args.condition,
+          args.selected
+        );
+        store.updateSelected(
+          rows.map(item => item.data),
+          valueField
+        );
+        break;
+      case 'initDrag':
+        store.startDragging();
+        break;
+      case 'cancelDrag':
+        store.stopDragging();
+        break;
+      case 'submitQuickEdit':
+        await this.handleSave();
+        break;
+      default:
+        return this.handleAction(undefined, action, data);
+    }
+  }
+>>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
 }
 
 export interface ListItemProps

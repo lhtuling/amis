@@ -7,6 +7,7 @@ import {
   RendererProps,
   TestIdBuilder,
   autobind,
+  keyToPath,
   setVariable,
   traceProps
 } from 'amis-core';
@@ -75,13 +76,13 @@ export class TableRow extends React.PureComponent<
   @autobind
   handleMouseEnter(e: React.MouseEvent<HTMLTableRowElement>) {
     const {item, itemIndex, onRowMouseEnter} = this.props;
-    onRowMouseEnter?.(item?.data, itemIndex);
+    onRowMouseEnter?.(item, itemIndex);
   }
 
   @autobind
   handleMouseLeave(e: React.MouseEvent<HTMLTableRowElement>) {
     const {item, itemIndex, onRowMouseLeave} = this.props;
-    onRowMouseLeave?.(item?.data, itemIndex);
+    onRowMouseLeave?.(item, itemIndex);
   }
 
   // 定义点击一行的行为，通过 itemAction配置
@@ -106,7 +107,7 @@ export class TableRow extends React.PureComponent<
       checkOnItemClick
     } = this.props;
 
-    const rendererEvent = await onRowClick?.(item?.data, itemIndex);
+    const rendererEvent = await onRowClick?.(item, itemIndex);
 
     if (rendererEvent?.prevented) {
       return;
@@ -125,7 +126,7 @@ export class TableRow extends React.PureComponent<
   @autobind
   handleDbClick(e: React.MouseEvent<HTMLTableRowElement>) {
     const {item, itemIndex, onRowDbClick} = this.props;
-    onRowDbClick?.(item?.data, itemIndex);
+    onRowDbClick?.(item, itemIndex);
   }
 
   @autobind
@@ -162,6 +163,11 @@ export class TableRow extends React.PureComponent<
 
     const {item, onQuickChange} = this.props;
     const data: any = {};
+    const keyPath = keyToPath(name);
+    // 如果是带路径的值变化，最好是能保留原来的对象的其他属性
+    if (keyPath.length > 1) {
+      data[keyPath[0]] = {...item.data[keyPath[0]]};
+    }
     setVariable(data, name, value);
 
     onQuickChange?.(item, data, submit, changePristine);
@@ -264,6 +270,7 @@ export class TableRow extends React.PureComponent<
                               ...rest,
                               width: null,
                               rowIndex: itemIndex,
+                              rowIndexPath: item.path,
                               colIndex: column.index,
                               rowPath,
                               key: column.index,
@@ -327,6 +334,7 @@ export class TableRow extends React.PureComponent<
               ...rest,
               rowIndex: itemIndex,
               colIndex: column.index,
+              rowIndexPath: item.path,
               rowPath,
               key: column.id,
               onAction: this.handleAction,

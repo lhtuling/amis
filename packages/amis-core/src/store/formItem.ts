@@ -276,6 +276,17 @@ export const FormItemStore = StoreNode.named('FormItemStore')
               [labelField || 'label']: item,
               __unmatched: true
             };
+
+            // 某些特殊情况，如select的autocomplete时
+            // 关键字没匹配到的项会被隐藏，不在filteredOptions中，导致匹配不到
+            // 此时需要从原始数据中查找，避免label丢失
+            const origin: any = self.selectedOptions
+              ? find(self.selectedOptions, optionValueCompare(item, valueField))
+              : null;
+
+            if (origin) {
+              unMatched[labelField] = origin[labelField];
+            }
           } else if (unMatched && extractValue) {
             unMatched = {
               [valueField || 'value']: item,
@@ -317,7 +328,9 @@ export const FormItemStore = StoreNode.named('FormItemStore')
 
   .actions(self => {
     const form = self.form as IFormStore;
-    const dialogCallbacks = new SimpleMap<(result?: any) => void>();
+    const dialogCallbacks = new SimpleMap<
+      (confirmed?: any, result?: any) => void
+    >();
     let loadAutoUpdateCancel: Function | null = null;
 
     const initHooks: Array<(store: any) => any> = [];
@@ -841,7 +854,11 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       } else if (clearValue && !self.selectFirst) {
         self.selectedOptions.some((item: any) => item.__unmatched) &&
           onChange &&
-          onChange('', false, true);
+          onChange(
+            self.joinValues === false && self.multiple ? [] : '',
+            false,
+            true
+          );
       }
 
       return json;
@@ -1441,7 +1458,11 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       clearError();
     }
 
-    function openDialog(schema: any, ctx: any, callback?: (ret?: any) => void) {
+    function openDialog(
+      schema: any,
+      ctx: any,
+      callback?: (confirmed?: any, value?: any) => void
+    ) {
       if (schema.data) {
         self.dialogData = dataMapping(schema.data, ctx);
       } else {
@@ -1453,13 +1474,13 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       callback && dialogCallbacks.set(self.dialogData, callback);
     }
 
-    function closeDialog(result?: any) {
+    function closeDialog(confirmed?: any, result?: any) {
       const callback = dialogCallbacks.get(self.dialogData);
       self.dialogOpen = false;
 
       if (callback) {
         dialogCallbacks.delete(self.dialogData);
-        setTimeout(() => callback(result), 200);
+        setTimeout(() => callback(confirmed, result), 200);
       }
     }
 
@@ -1508,7 +1529,9 @@ export const FormItemStore = StoreNode.named('FormItemStore')
           yield hook(self);
         }
       } finally {
-        self.inited = true;
+        if (isAlive(self)) {
+          self.inited = true;
+        }
       }
     });
 

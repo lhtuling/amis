@@ -343,13 +343,6 @@ export default class APIControl extends React.Component<
     });
   }
 
-  @autobind
-  handleSimpleSelectChange(e: any) {
-    let value = e.value;
-
-    this.handleSubmit(value, 'input');
-  }
-
   handleSimpleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     this.handleSubmit(e.currentTarget.value, 'input');
   };

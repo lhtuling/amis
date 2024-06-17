@@ -20,6 +20,19 @@ import {
 import {dataMapping, tokenize} from './utils/tpl-builtin';
 import {RootStoreContext} from './WithRootStore';
 
+/**
+ * 忽略静态数据中的 schema 属性
+ *
+ * 比如 https://github.com/baidu/amis/issues/8972 中的用法
+ */
+function ignoreSchemaProps(key: string, value: any) {
+  if (['clickAction'].includes(key) && typeof value !== 'string') {
+    return true;
+  }
+
+  return false;
+}
+
 export function HocStoreFactory(renderer: {
   storeType: string;
   extendsData?: boolean | ((props: any) => boolean);
@@ -86,7 +99,11 @@ export function HocStoreFactory(renderer: {
                 : null,
               {
                 ...this.formatData(
-                  dataMapping(this.props.defaultData, this.props.data)
+                  dataMapping(
+                    this.props.defaultData,
+                    this.props.data,
+                    ignoreSchemaProps
+                  )
                 ),
                 ...this.formatData(this.props.data)
               }
@@ -96,11 +113,15 @@ export function HocStoreFactory(renderer: {
           this.props.scope ||
           (this.props.data && (this.props.data as any).__super)
         ) {
-          if (this.props.store && this.props.data === this.props.store.data) {
+          if (this.props.store && this.props.data === this.props.scope) {
             store.initData(
               createObject(this.props.store.data, {
                 ...this.formatData(
-                  dataMapping(this.props.defaultData, this.props.data)
+                  dataMapping(
+                    this.props.defaultData,
+                    this.props.data,
+                    ignoreSchemaProps
+                  )
                 )
               })
             );
@@ -110,7 +131,11 @@ export function HocStoreFactory(renderer: {
                 (this.props.data as any).__super || this.props.scope,
                 {
                   ...this.formatData(
-                    dataMapping(this.props.defaultData, this.props.data)
+                    dataMapping(
+                      this.props.defaultData,
+                      this.props.data,
+                      ignoreSchemaProps
+                    )
                   ),
                   ...this.formatData(this.props.data)
                 }
@@ -120,7 +145,11 @@ export function HocStoreFactory(renderer: {
         } else {
           store.initData({
             ...this.formatData(
-              dataMapping(this.props.defaultData, this.props.data)
+              dataMapping(
+                this.props.defaultData,
+                this.props.data,
+                ignoreSchemaProps
+              )
             ),
             ...this.formatData(this.props.data)
           });
@@ -221,7 +250,8 @@ export function HocStoreFactory(renderer: {
                 ...this.formatData(props.defaultData),
                 ...this.formatData(props.data)
               }),
-              props.updatePristineAfterStoreDataReInit === false
+              (props.updatePristineAfterStoreDataReInit ??
+                props.dataUpdatedAt !== prevProps.dataUpdatedAt) === false
             );
           }
         } else if (
@@ -233,7 +263,7 @@ export function HocStoreFactory(renderer: {
               (props.syncSuperStore !== false &&
                 isSuperDataModified(props.data, prevProps.data, store)))
         ) {
-          if (props.store && props.store.data === props.data) {
+          if (props.store && props.scope === props.data) {
             store.initData(
               createObject(
                 props.store.data,
@@ -249,7 +279,8 @@ export function HocStoreFactory(renderer: {
                       props.syncSuperStore === true
                     )
               ),
-              props.updatePristineAfterStoreDataReInit === false
+              (props.updatePristineAfterStoreDataReInit ??
+                props.dataUpdatedAt !== prevProps.dataUpdatedAt) === false
             );
           } else if (props.data && (props.data as any).__super) {
             store.initData(
@@ -267,24 +298,26 @@ export function HocStoreFactory(renderer: {
                   props.store?.storeType === 'ComboStore'
                   ? undefined
                   : syncDataFromSuper(
-                      {...store.data, ...props.data},
+                      {...store.pristineDiff, ...props.data},
                       (props.data as any).__super,
                       (prevProps.data as any).__super,
                       store,
                       false
                     )
               ),
-              props.updatePristineAfterStoreDataReInit === false
+              (props.updatePristineAfterStoreDataReInit ??
+                props.dataUpdatedAt !== prevProps.dataUpdatedAt) === false
             );
           } else {
             store.initData(
               createObject(props.scope, props.data),
-              props.updatePristineAfterStoreDataReInit === false
+              (props.updatePristineAfterStoreDataReInit ??
+                props.dataUpdatedAt !== prevProps.dataUpdatedAt) === false
             );
           }
         } else if (
           !props.trackExpression &&
-          (!props.store || props.data !== props.store.data) &&
+          (!props.store || props.data !== props.scope) &&
           props.data &&
           props.data.__super
         ) {
@@ -303,7 +336,8 @@ export function HocStoreFactory(renderer: {
                 ...store.data
               }),
 
-              props.updatePristineAfterStoreDataReInit === false ||
+              (props.updatePristineAfterStoreDataReInit ??
+                props.dataUpdatedAt !== prevProps.dataUpdatedAt) === false ||
                 (store.storeType === 'FormStore' &&
                   prevProps.store?.storeType === 'CRUDStore')
             );
@@ -322,7 +356,8 @@ export function HocStoreFactory(renderer: {
               // ...nextProps.data,
               ...store.data
             }),
-            props.updatePristineAfterStoreDataReInit === false
+            (props.updatePristineAfterStoreDataReInit ??
+              props.dataUpdatedAt !== prevProps.dataUpdatedAt) === false
           );
         }
       }
@@ -367,13 +402,19 @@ export function HocStoreFactory(renderer: {
           return null;
         }
 
+        const refConfig =
+          Component.prototype?.isReactComponent ||
+          (Component as any).$$typeof === Symbol.for('react.forward_ref')
+            ? {ref: this.refFn}
+            : {forwardedRef: this.refFn};
+
         return (
           <Component
             {
               ...(rest as any) /* todo */
             }
             {...this.state}
-            ref={this.refFn}
+            {...refConfig}
             data={this.store.data}
             dataUpdatedAt={this.store.updatedAt}
             store={this.store}

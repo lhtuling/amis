@@ -307,6 +307,7 @@ export interface DateProps extends LocaleProps, ThemeProps {
     };
   };
   popOverContainer?: any;
+  popOverContainerSelector?: string;
   label?: string | false;
   borderMode?: 'full' | 'half' | 'none';
   // 是否为内嵌模式，如果开启就不是 picker 了，直接页面点选。
@@ -484,7 +485,9 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
 
     if (prevValue !== props.value) {
       const newState: any = {
-        value: normalizeDate(props.value, props.valueFormat || props.format)
+        value: normalizeDate(props.value, props.valueFormat || props.format, {
+          utc: props.utc
+        })
       };
 
       newState.inputValue =
@@ -705,9 +708,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
     const updatedValue = utc
       ? moment.utc(value).format(valueFormat || format)
       : value.format(valueFormat || format);
-    const updatedInputValue = utc
-      ? moment.utc(value).format(displayFormat || inputFormat)
-      : value.format(displayFormat || inputFormat);
+    const updatedInputValue = value.format(displayFormat || inputFormat);
 
     if (isConfirmMode) {
       this.setState({value, inputValue: updatedInputValue});
@@ -744,7 +745,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
       // 将输入的格式转成正则匹配，比如 YYYY-MM-DD HH:mm:ss 改成 \d\d\d\d\-
       // 只有匹配成功才更新
       const inputCheckRegex = new RegExp(
-        (valueFormat || inputFormat || displayFormat)!
+        (inputFormat || displayFormat)!
           .replace(/[ymdhs]/gi, '\\d')
           .replace(/-/gi, '\\-')
       );
@@ -929,6 +930,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
       viewMode,
       timeConstraints,
       popOverContainer,
+      popOverContainerSelector,
       clearable,
       shortcuts,
       utc,
@@ -1130,6 +1132,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
           <Overlay
             target={this.getTarget}
             container={popOverContainer || this.getParent}
+            containerSelector={popOverContainerSelector}
             rootClose={false}
             placement={overlayPlacement}
             show

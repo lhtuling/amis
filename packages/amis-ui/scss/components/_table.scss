@@ -434,6 +434,7 @@
       > td,
       > th {
         padding: var(--TableCell-paddingY) var(--TableCell-paddingX);
+        position: relative;
 
         &:first-child {
           padding-left: var(--TableCell--edge-paddingX);
@@ -642,6 +643,11 @@
 
       > .#{$ns}Spinner {
         vertical-align: middle;
+      }
+
+      > [data-role='form-item'] {
+        display: inline-block;
+        min-width: px2rem(160px);
       }
     }
   }

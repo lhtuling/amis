@@ -141,22 +141,19 @@ export class ContainerPlugin extends LayoutBasePlugin {
 
     const node = context.node!;
     const isFlexItem = this.manager?.isFlexItem(node.id);
-    if (isFlexItem && context.node.parent?.children?.length > 1) {
-      let isColumnFlex = String(node.schema?.style?.flexDirection).includes(
-        'column'
+    if (isFlexItem) {
+      let isColumnFlex = this.manager.isFlexColumnItem(node.id);
+      context?.node.setHeightMutable(
+        node?.schema?.isFixedHeight && !isColumnFlex
       );
-      console.log(
-        'isColumnFlex',
-        isColumnFlex,
-        node.schema?.style?.flexDirection
+      context?.node.setWidthMutable(
+        (!isColumnFlex && context.node.parent?.children?.length > 1) ||
+          node.schema?.style?.flex === '0 0 150px'
       );
-      // context?.node.setHeightMutable(isColumnFlex);
-      context?.node.setWidthMutable(!isColumnFlex);
+    } else {
+      context?.node.setHeightMutable(node.schema?.isFixedHeight);
+      context?.node.setWidthMutable(node.schema?.isFixedWidth);
     }
-  }
-
-  afterUpdate(event: PluginEvent<ActiveEventContext>) {
-    const node = event.context?.node;
   }
 
   onWidthChangeStart(
@@ -177,11 +174,11 @@ export class ContainerPlugin extends LayoutBasePlugin {
     if (!parent) {
       return;
     }
-    console.log('on width change start');
     const resizer = context.resizer;
     const frameRect = parent.getBoundingClientRect();
     const rect = dom.getBoundingClientRect();
     const isFlexItem = this.manager?.isFlexItem(node.id);
+    const isColumnFlex = this.manager?.isFlexColumnItem(node.id);
     const schema = node.schema;
     const index = node.index;
     const isFlexSize =
@@ -234,7 +231,7 @@ export class ContainerPlugin extends LayoutBasePlugin {
             }
           }
         } else {
-          if (isFlexItem) {
+          if (isFlexItem && !isColumnFlex) {
             node.updateState({
               style: {
                 ...node.schema.style,
@@ -270,7 +267,7 @@ export class ContainerPlugin extends LayoutBasePlugin {
             item.updateState({}, true);
           });
         } else {
-          if (isFlexItem) {
+          if (isFlexItem && !isColumnFlex) {
             node.updateSchema({
               style: {
                 ...node.schema.style,
@@ -296,18 +293,18 @@ export class ContainerPlugin extends LayoutBasePlugin {
     });
   }
 
-  onHeightChangeStart(
-    event: PluginEvent<
-      ResizeMoveEventContext,
-      {
-        onMove(e: MouseEvent): void;
-        onEnd(e: MouseEvent): void;
-      }
-    >
-  ) {
-    console.log('on height change start');
-    // return this.onSizeChangeStart(event, 'vertical');
-  }
+  // onHeightChangeStart(
+  //   event: PluginEvent<
+  //     ResizeMoveEventContext,
+  //     {
+  //       onMove(e: MouseEvent): void;
+  //       onEnd(e: MouseEvent): void;
+  //     }
+  //   >
+  // ) {
+  //   // console.log('on height change start');
+  //   // return this.onSizeChangeStart(event, 'vertical');
+  // }
 
   panelBodyCreator = (context: BaseEventContext) => {
     const curRendererSchema = context?.schema;
@@ -337,7 +334,7 @@ export class ContainerPlugin extends LayoutBasePlugin {
 
       getSchemaTpl('layout:flex-setting', {
         visibleOn:
-          'data.style && (data.style.display === "flex" || data.style.display === "inline-flex")',
+          'this.style && (this.style.display === "flex" || this.style.display === "inline-flex")',
         direction: curRendererSchema.direction,
         justify: curRendererSchema.justify,
         alignItems: curRendererSchema.alignItems
@@ -345,7 +342,7 @@ export class ContainerPlugin extends LayoutBasePlugin {
 
       getSchemaTpl('layout:flex-wrap', {
         visibleOn:
-          'data.style && (data.style.display === "flex" || data.style.display === "inline-flex")'
+          'this.style && (this.style.display === "flex" || this.style.display === "inline-flex")'
       })
     ];
 
@@ -480,21 +477,21 @@ export class ContainerPlugin extends LayoutBasePlugin {
                       isFlexColumnItem,
                       label: isFlexColumnItem ? '高度设置' : '宽度设置',
                       visibleOn:
-                        'data.style && (data.style.position === "static" || data.style.position === "relative")'
+                        'this.style && (this.style.position === "static" || this.style.position === "relative")'
                     }),
                     getSchemaTpl('layout:flex-grow', {
                       visibleOn:
-                        'data.style && data.style.flex === "1 1 auto" && (data.style.position === "static" || data.style.position === "relative")'
+                        'this.style && this.style.flex === "1 1 auto" && (this.style.position === "static" || this.style.position === "relative")'
                     }),
                     getSchemaTpl('layout:flex-basis', {
                       label: isFlexColumnItem ? '弹性高度' : '弹性宽度',
                       visibleOn:
-                        'data.style && (data.style.position === "static" || data.style.position === "relative") && data.style.flex === "1 1 auto"'
+                        'this.style && (this.style.position === "static" || this.style.position === "relative") && this.style.flex === "1 1 auto"'
                     }),
                     getSchemaTpl('layout:flex-basis', {
                       label: isFlexColumnItem ? '固定高度' : '固定宽度',
                       visibleOn:
-                        'data.style && (data.style.position === "static" || data.style.position === "relative") && data.style.flex === "0 0 150px"'
+                        'this.style && (this.style.position === "static" || this.style.position === "relative") && this.style.flex === "0 0 150px"'
                     })
                   ]
                 : []),
@@ -502,7 +499,7 @@ export class ContainerPlugin extends LayoutBasePlugin {
               getSchemaTpl('layout:overflow-x', {
                 visibleOn: `${
                   isFlexItem && !isFlexColumnItem
-                } && data.style.flex === '0 0 150px'`
+                } && this.style.flex === '0 0 150px'`
               }),
 
               getSchemaTpl('layout:isFixedHeight', {
@@ -523,9 +520,9 @@ export class ContainerPlugin extends LayoutBasePlugin {
               getSchemaTpl('layout:overflow-y', {
                 visibleOn: `${
                   !isFlexItem || !isFlexColumnItem
-                } && (data.isFixedHeight || data.style && data.style.maxHeight) || (${
+                } && (this.isFixedHeight || this.style && this.style.maxHeight) || (${
                   isFlexItem && isFlexColumnItem
-                } && data.style.flex === '0 0 150px')`
+                } && this.style.flex === '0 0 150px')`
               }),
 
               getSchemaTpl('layout:isFixedWidth', {
@@ -545,18 +542,18 @@ export class ContainerPlugin extends LayoutBasePlugin {
               getSchemaTpl('layout:max-width', {
                 visibleOn: `${
                   !isFlexItem || isFlexColumnItem
-                } || ${isFlexItem} && data.style.flex !== '0 0 150px'`
+                } || ${isFlexItem} && this.style.flex !== '0 0 150px'`
               }),
               getSchemaTpl('layout:min-width', {
                 visibleOn: `${
                   !isFlexItem || isFlexColumnItem
-                } || ${isFlexItem} && data.style.flex !== '0 0 150px'`
+                } || ${isFlexItem} && this.style.flex !== '0 0 150px'`
               }),
 
               getSchemaTpl('layout:overflow-x', {
                 visibleOn: `${
                   !isFlexItem || isFlexColumnItem
-                } && (data.isFixedWidth || data.style && data.style.maxWidth)`
+                } && (this.isFixedWidth || this.style && this.style.maxWidth)`
               }),
 
               !isFlexItem ? getSchemaTpl('layout:margin-center') : null,
@@ -565,26 +562,13 @@ export class ContainerPlugin extends LayoutBasePlugin {
                     name: 'style.textAlign',
                     label: '内部对齐方式',
                     visibleOn:
-                      'data.style && data.style.display !== "flex" && data.style.display !== "inline-flex"'
+                      'this.style && this.style.display !== "flex" && this.style.display !== "inline-flex"'
                   })
                 : null,
-              getSchemaTpl('layout:z-index')
-            ]
-          },
-          getSchemaTpl('status'),
-          {
-            title: '高级',
-            body: [
-              getSchemaTpl('layout:position', {
-                visibleOn: '!data.stickyStatus'
-              }),
-              getSchemaTpl('layout:originPosition'),
-              getSchemaTpl('layout:inset', {
-                mode: 'vertical'
-              }),
+              getSchemaTpl('layout:z-index'),
               getSchemaTpl('layout:sticky', {
                 visibleOn:
-                  'data.style && (data.style.position !== "fixed" && data.style.position !== "absolute")'
+                  'this.style && (this.style.position !== "fixed" && this.style.position !== "absolute")'
               }),
               getSchemaTpl('layout:stickyPosition')
             ]

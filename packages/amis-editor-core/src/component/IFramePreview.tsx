@@ -39,7 +39,7 @@ export default class IFramePreview extends React.Component<IFramePreviewProps> {
         return el.outerHTML;
       });
     styles.push(
-      `<style>body {height:auto !important;min-height:100%;display: flex;flex-direction: column;}</style>`
+      `<style>body {height:auto !important;min-height:100%;overflow-y:auto !important;display: flex;flex-direction: column;}</style>`
     );
 
     this.initialContent = `<!DOCTYPE html><html><head>${styles.join(
@@ -114,7 +114,8 @@ export default class IFramePreview extends React.Component<IFramePreviewProps> {
               ...rest,
               key: editable ? 'edit-mode' : 'preview-mode',
               theme: env.theme,
-              data: data ?? store.ctx,
+              data: data,
+              context: store.ctx,
               locale: appLocale,
               editorDialogMountNode: this.getDialogMountRef
             },

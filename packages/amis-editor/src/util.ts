@@ -353,11 +353,6 @@ export const TREE_BASE_EVENTS = (schema: any) => {
                 title: '数据',
                 properties: {
                   value,
-                  item: {
-                    type: 'object',
-                    title: '选中的项',
-                    properties: itemSchema
-                  },
                   items
                 }
               }

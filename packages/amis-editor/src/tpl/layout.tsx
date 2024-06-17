@@ -132,7 +132,7 @@ setSchemaTpl(
       value: config?.value || 'auto',
       visibleOn:
         config?.visibleOn ??
-        'data.style && data.style.position && data.style.position !== "static"',
+        'this.style && this.style.position && this.style.position !== "static"',
       pipeIn: (value: any) => {
         let curValue = value || 'auto';
         if (isNumber(curValue)) {
@@ -199,7 +199,7 @@ setSchemaTpl(
       value: config?.value,
       visibleOn:
         config?.visibleOn ??
-        'data.style && data.style.position && data.style.position !== "static"',
+        'this.style && this.style.position && this.style.position !== "static"',
       pipeIn: config?.pipeIn,
       pipeOut: config?.pipeOut
     };
@@ -623,6 +623,7 @@ setSchemaTpl(
   'layout:flex-basis',
   (config?: {
     label?: string;
+    tooltip?: string;
     name?: string;
     value?: string;
     visibleOn?: string;
@@ -634,7 +635,8 @@ setSchemaTpl(
       type: 'input-number',
       label: tipedLabel(
         config?.label || '默认宽度',
-        '在分配多余空间之前，其默认占据的主轴空间（main size）'
+        config?.tooltip ||
+          '在分配多余空间之前，其默认占据的主轴空间（main size）'
       ),
       name: config?.name || 'style.flexBasis',
       value: config?.value || 'auto',
@@ -679,7 +681,7 @@ setSchemaTpl(
       name: config?.name || 'style.flexGrow',
       value: config?.value || 1,
       visibleOn:
-        config?.visibleOn || 'data.style && data.style.flex !== "0 0 auto"',
+        config?.visibleOn || 'this.style && this.style.flex !== "0 0 auto"',
       pipeIn: config?.pipeIn,
       pipeOut: config?.pipeOut
     };
@@ -753,8 +755,8 @@ setSchemaTpl(
       name: config?.name || 'style.width',
       value: config?.value || '300px',
       visibleOn: config?.visibleOn
-        ? `(${config?.visibleOn}) && data.isFixedWidth`
-        : 'data.isFixedWidth',
+        ? `(${config?.visibleOn}) && this.isFixedWidth`
+        : 'this.isFixedWidth',
       clearable: true,
       unitOptions: config?.unitOptions ?? LayoutUnitOptions,
       pipeIn: config?.pipeIn,
@@ -826,8 +828,8 @@ setSchemaTpl(
       value: config?.value,
       min: '${style.minWidth | toInt}',
       visibleOn: config?.visibleOn
-        ? `(${config?.visibleOn}) && !data.isFixedWidth`
-        : '!data.isFixedWidth',
+        ? `(${config?.visibleOn}) && !this.isFixedWidth`
+        : '!this.isFixedWidth',
       clearable: true,
       unitOptions: config?.unitOptions ?? LayoutUnitOptions,
       pipeIn: config?.pipeIn,
@@ -865,8 +867,8 @@ setSchemaTpl(
       value: config?.value,
       max: '${style.maxWidth | toInt}',
       visibleOn: config?.visibleOn
-        ? `(${config?.visibleOn}) && !data.isFixedWidth`
-        : '!data.isFixedWidth',
+        ? `(${config?.visibleOn}) && !this.isFixedWidth`
+        : '!this.isFixedWidth',
       clearable: true,
       unitOptions: config?.unitOptions ?? LayoutUnitOptions,
       pipeIn: config?.pipeIn,
@@ -993,8 +995,8 @@ setSchemaTpl(
       name: config?.name || 'style.height',
       value: config?.value || '300px',
       visibleOn: config?.visibleOn
-        ? `(${config?.visibleOn}) && data.isFixedHeight`
-        : 'data.isFixedHeight',
+        ? `(${config?.visibleOn}) && this.isFixedHeight`
+        : 'this.isFixedHeight',
       clearable: true,
       unitOptions: config?.unitOptions ?? LayoutUnitOptions,
       pipeIn: config?.pipeIn,
@@ -1032,8 +1034,8 @@ setSchemaTpl(
       value: config?.value,
       min: '${style.minHeight | toInt}',
       visibleOn: config?.visibleOn
-        ? `(${config?.visibleOn}) && !data.isFixedHeight`
-        : '!data.isFixedHeight',
+        ? `(${config?.visibleOn}) && !this.isFixedHeight`
+        : '!this.isFixedHeight',
       clearable: true,
       unitOptions: config?.unitOptions ?? LayoutUnitOptions,
       pipeIn: config?.pipeIn,
@@ -1071,8 +1073,8 @@ setSchemaTpl(
       value: config?.value,
       max: '${style.maxHeight | toInt}',
       visibleOn: config?.visibleOn
-        ? `(${config?.visibleOn}) && !data.isFixedHeight`
-        : '!data.isFixedHeight',
+        ? `(${config?.visibleOn}) && !this.isFixedHeight`
+        : '!this.isFixedHeight',
       clearable: true,
       unitOptions: config?.unitOptions ?? LayoutUnitOptions,
       pipeIn: config?.pipeIn,
@@ -1157,7 +1159,7 @@ setSchemaTpl(
       inputClassName: 'inline-flex justify-between',
       visibleOn:
         config?.visibleOn ??
-        'data.isFixedWidth || data.style && data.style.maxWidth',
+        'this.isFixedWidth || this.style && this.style.maxWidth',
       options: [
         {
           label: '靠左',
@@ -1258,7 +1260,7 @@ setSchemaTpl(
       value: config?.value || 'right-bottom',
       visibleOn:
         config?.visibleOn ??
-        'data.style && data.style.position && (data.style.position === "fixed" || data.style.position === "absolute")',
+        'this.style && this.style.position && (this.style.position === "fixed" || this.style.position === "absolute")',
       pipeIn: config?.pipeIn,
       pipeOut: config?.pipeOut,
       options: [
@@ -1370,7 +1372,7 @@ setSchemaTpl('layout:stickyPosition', {
   size: 'xs',
   label: tipedLabel('吸附位置', '用于设置滚动吸附时的位置'),
   name: 'stickyPosition',
-  visibleOn: 'data.stickyStatus',
+  visibleOn: 'this.stickyStatus',
   options: [
     {
       label: '吸顶',
@@ -1498,6 +1500,7 @@ setSchemaTpl(
     name?: string;
     label?: string;
     visibleOn?: string;
+    strictMode?: boolean;
     pipeIn?: (value: any, data: any) => void;
     pipeOut?: (value: any, data: any) => void;
   }) => {
@@ -1508,7 +1511,8 @@ setSchemaTpl(
       label: config?.label ?? false,
       visibleOn: config?.visibleOn,
       pipeIn: config?.pipeIn,
-      pipeOut: config?.pipeOut
+      pipeOut: config?.pipeOut,
+      strictMode: config?.strictMode
     };
   }
 );

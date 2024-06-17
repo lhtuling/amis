@@ -677,7 +677,12 @@ export default class Tabs extends React.Component<TabsProps, TabsState> {
   /**
    * 动作处理
    */
-  doAction(action: ActionObject, args: any) {
+  doAction(
+    action: ActionObject,
+    data: any,
+    throwErrors: boolean = false,
+    args?: any
+  ) {
     const actionType = action?.actionType as string;
     const tmpKey = Number(args?.activeKey);
     let activeKey = isNaN(tmpKey) ? args?.activeKey : tmpKey;
@@ -723,7 +728,9 @@ export default class Tabs extends React.Component<TabsProps, TabsState> {
     const {render} = this.props;
     return typeof title === 'string' || !title
       ? filter(title, data)
-      : render(`tab-title/${index}`, title, {...data, index});
+      : render(`tab-title/${index}`, title, {
+          data: {index, __index: index, ...data}
+        });
   }
 
   renderToolbar() {

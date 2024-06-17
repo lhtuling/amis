@@ -31,7 +31,7 @@ import {
 
 import {ActionSchema} from './Action';
 
-import {tokenize, evalExpressionWithConditionBuilder} from 'amis-core';
+import {tokenize, evalExpressionWithConditionBuilderAsync} from 'amis-core';
 import {StepSchema} from './Steps';
 import isEqual from 'lodash/isEqual';
 import omit from 'lodash/omit';
@@ -413,7 +413,7 @@ export default class Wizard extends React.Component<WizardProps, WizardState> {
     const stepsLength = steps.length;
     // 这里有个bug，如果把第一个step隐藏，表单就不会渲染
     for (let i = 0; i < stepsLength; i++) {
-      const hiddenFlag = await evalExpressionWithConditionBuilder(
+      const hiddenFlag = await evalExpressionWithConditionBuilderAsync(
         steps[i].hiddenOn,
         values
       );
@@ -650,12 +650,29 @@ export default class Wizard extends React.Component<WizardProps, WizardState> {
       this.form.reset();
     } else if (action.actionType === 'dialog') {
       store.setCurrentAction(action, this.props.resolveDefinitions);
+<<<<<<< HEAD
       store.openDialog(
         data,
         undefined,
         action.callback,
         delegate || (this.context as any)
       );
+=======
+      return new Promise<any>(resolve => {
+        store.openDialog(
+          data,
+          undefined,
+          (confirmed: any, value: any) => {
+            action.callback?.(confirmed, value);
+            resolve({
+              confirmed,
+              value
+            });
+          },
+          delegate || (this.context as any)
+        );
+      });
+>>>>>>> e6f2b5146ae5e07b00a50884bee69c5ad0020f59
     } else if (action.actionType === 'ajax') {
       if (!action.api) {
         return env.alert(`当 actionType 为 ajax 时，请设置 api 属性`);
@@ -1037,7 +1054,7 @@ export default class Wizard extends React.Component<WizardProps, WizardState> {
       store.updateData(values[0]);
     }
 
-    store.closeDialog(true);
+    store.closeDialog(true, values);
   }
 
   @autobind

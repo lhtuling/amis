@@ -52,6 +52,7 @@ import type {LabelAlign} from './Item';
 import {injectObjectChain} from '../utils';
 import {reaction} from 'mobx';
 import groupBy from 'lodash/groupBy';
+import isEqual from 'lodash/isEqual';
 
 export interface FormHorizontal {
   left?: number;
@@ -231,7 +232,7 @@ export interface FormSchemaBase {
   /**
    * 配置表单项默认的展示方式。
    */
-  mode?: 'normal' | 'inline' | 'horizontal';
+  mode?: 'normal' | 'inline' | 'horizontal' | 'flex';
 
   /**
    * 表单项显示为几列
@@ -640,7 +641,6 @@ export default class Form extends React.Component<FormProps, object> {
             );
           }
         })
-        .then(this.dispatchInited)
         .then(this.initInterval)
         .then(this.onInit);
     } else {
@@ -675,8 +675,8 @@ export default class Form extends React.Component<FormProps, object> {
           errorMessage: fetchFailed
         }
       )
-        .then(this.dispatchInited)
-        .then(this.initInterval);
+        .then(this.initInterval)
+        .then(this.dispatchInited);
     }
   }
 
@@ -713,12 +713,12 @@ export default class Form extends React.Component<FormProps, object> {
   async dispatchInited(value: any) {
     const {data, store, dispatchEvent} = this.props;
 
-    if (store.fetching) {
+    if (!isAlive(store) || store.fetching) {
       return value;
     }
 
     // 派发init事件，参数为初始化数据
-    await dispatchEvent(
+    const result = await dispatchEvent(
       'inited',
       createObject(data, {
         ...value?.data, // 保留，兼容历史
@@ -728,7 +728,7 @@ export default class Form extends React.Component<FormProps, object> {
       })
     );
 
-    return value;
+    return result;
   }
 
   blockRouting(): any {
@@ -804,6 +804,15 @@ export default class Form extends React.Component<FormProps, object> {
     }
 
     onInit && onInit(data, this.props);
+
+    // 派发初始化事件
+    const dispatch = await this.dispatchInited({data});
+
+    if (dispatch?.prevented) {
+      return;
+    }
+
+    // submitOnInit
     submitOnInit &&
       this.handleAction(
         undefined,
@@ -837,8 +846,10 @@ export default class Form extends React.Component<FormProps, object> {
         [initFinishedField || 'finished']: false
       });
 
+    let result: Payload | undefined = undefined;
+
     if (isEffectiveApi(initApi, store.data)) {
-      const result: Payload = await store.fetchInitData(initApi, store.data, {
+      result = await store.fetchInitData(initApi, store.data, {
         successMessage: fetchSuccess,
         errorMessage: fetchFailed,
         silent,
@@ -860,9 +871,6 @@ export default class Form extends React.Component<FormProps, object> {
         }
       });
 
-      // 派发初始化接口请求完成事件
-      await this.dispatchInited(result);
-
       if (result?.ok) {
         this.initInterval(result);
         store.reset(undefined, false);
@@ -870,6 +878,9 @@ export default class Form extends React.Component<FormProps, object> {
     } else {
       store.reset(undefined, false);
     }
+
+    // 派发初始化接口请求完成事件
+    this.dispatchInited(result);
   }
 
   receive(values: object, name?: string, replace?: boolean) {
@@ -983,7 +994,9 @@ export default class Form extends React.Component<FormProps, object> {
       this.flushing = true;
       const hooks = this.hooks['flush'] || [];
       await Promise.all(hooks.map(fn => fn()));
-      await this.lazyEmitChange.flush();
+      if (!this.emitting) {
+        await this.lazyEmitChange.flush();
+      }
     } finally {
       this.flushing = false;
     }
@@ -1038,7 +1051,7 @@ export default class Form extends React.Component<FormProps, object> {
       return;
     }
     store.changeValue(name, value, changePristine);
-    if (!changePristine) {
+    if (!changePristine || typeof value !== 'undefined') {
       (formLazyChange === false ? this.emitChange : this.lazyEmitChange)(
         submit
       );
@@ -1053,42 +1066,55 @@ export default class Form extends React.Component<FormProps, object> {
     return dispatchEvent(type, data);
   }
 
-  async emitChange(submit: boolean, skipIfNothingChanges: boolean = false) {
-    const {onChange, store, submitOnChange, dispatchEvent, data} = this.props;
+  emittedData: any = null;
+  emitting = false;
+  async emitChange(submit: boolean, emitedFromWatch: boolean = false) {
+    try {
+      this.emitting = true;
 
-    if (!isAlive(store)) {
-      return;
-    }
+      const {onChange, store, submitOnChange, dispatchEvent, data} = this.props;
 
-    const diff = difference(store.data, store.pristine);
-    if (skipIfNothingChanges && !Object.keys(diff).length) {
-      return;
-    }
+      if (!isAlive(store)) {
+        return;
+      }
 
-    // 提前准备好 onChange 的参数。
-    // 因为 store.data 会在 await 期间被 WithStore.componentDidUpdate 中的 store.initData 改变。导致数据丢失
-    const changeProps = [store.data, diff, this.props];
-    const dispatcher = await dispatchEvent(
-      'change',
-      createObject(data, store.data)
-    );
-    if (!dispatcher?.prevented) {
-      onChange && onChange.apply(null, changeProps);
-    }
+      const diff = difference(store.data, store.pristine);
+      if (
+        emitedFromWatch &&
+        (!Object.keys(diff).length || isEqual(store.data, this.emittedData))
+      ) {
+        return;
+      }
 
-    store.clearRestError();
-
-    if (submit || (submitOnChange && store.inited)) {
-      await this.handleAction(
-        undefined,
-        {
-          type: 'submit',
-          // 如果这里不跳过，会相互依赖死循环，flush 会 让 emiteChange 立即执行
-          // handleAction 里面又会调用 flush
-          skipFormFlush: true
-        },
-        store.data
+      this.emittedData = store.data;
+      // 提前准备好 onChange 的参数。
+      // 因为 store.data 会在 await 期间被 WithStore.componentDidUpdate 中的 store.initData 改变。导致数据丢失
+      const changeProps = [store.data, diff, this.props];
+      const dispatcher = await dispatchEvent(
+        'change',
+        createObject(data, store.data)
       );
+      if (!dispatcher?.prevented) {
+        onChange && onChange.apply(null, changeProps);
+      }
+
+      store.clearRestError();
+
+      // 只有主动修改表单项触发的 change 才会触发 submit
+      if (!emitedFromWatch && (submit || (submitOnChange && store.inited))) {
+        await this.handleAction(
+          undefined,
+          {
+            type: 'submit',
+            // 如果这里不跳过，会相互依赖死循环，flush 会 让 emiteChange 立即执行
+            // handleAction 里面又会调用 flush
+            skipFormFlush: true
+          },
+          store.data
+        );
+      }
+    } finally {
+      this.emitting = false;
     }
   }
 
@@ -1258,14 +1284,34 @@ export default class Form extends React.Component<FormProps, object> {
             action.target &&
               this.reloadTarget(filterTarget(action.target, values), values);
           } else if (action.actionType === 'dialog') {
-            store.openDialog(
-              data,
-              undefined,
-              action.callback,
-              delegate || (this.context as any)
-            );
+            return new Promise<any>(resolve => {
+              store.openDialog(
+                data,
+                undefined,
+                (confirmed: any, value: any) => {
+                  action.callback?.(confirmed, value);
+                  resolve({
+                    confirmed,
+                    value
+                  });
+                },
+                delegate || (this.context as any)
+              );
+            });
           } else if (action.actionType === 'drawer') {
-            store.openDrawer(data);
+            return new Promise<any>(resolve => {
+              store.openDrawer(
+                data,
+                undefined,
+                (confirmed: any, value: any) => {
+                  action.callback?.(confirmed, value);
+                  resolve({
+                    confirmed,
+                    value
+                  });
+                }
+              );
+            });
           } else if (isEffectiveApi(action.api || api, values)) {
             let finnalAsyncApi = action.asyncApi || asyncApi;
             isEffectiveApi(finnalAsyncApi, store.data) &&
@@ -1406,15 +1452,31 @@ export default class Form extends React.Component<FormProps, object> {
       return this.validate(true, throwErrors, true, true);
     } else if (action.actionType === 'dialog') {
       store.setCurrentAction(action, this.props.resolveDefinitions);
-      store.openDialog(
-        data,
-        undefined,
-        action.callback,
-        delegate || (this.context as any)
-      );
+      return new Promise<any>(resolve => {
+        store.openDialog(
+          data,
+          undefined,
+          (confirmed: any, value: any) => {
+            action.callback?.(confirmed, value);
+            resolve({
+              confirmed,
+              value
+            });
+          },
+          delegate || (this.context as any)
+        );
+      });
     } else if (action.actionType === 'drawer') {
       store.setCurrentAction(action, this.props.resolveDefinitions);
-      store.openDrawer(data);
+      return new Promise<any>(resolve => {
+        store.openDrawer(data, undefined, (confirmed: any, value: any) => {
+          action.callback?.(confirmed, value);
+          resolve({
+            confirmed,
+            value
+          });
+        });
+      });
     } else if (action.actionType === 'ajax') {
       store.setCurrentAction(action, this.props.resolveDefinitions);
       if (!isEffectiveApi(action.api)) {
@@ -1528,7 +1590,7 @@ export default class Form extends React.Component<FormProps, object> {
       this.handleBulkChange(values[0], false);
     }
 
-    store.closeDialog(true);
+    store.closeDialog(true, values);
   }
 
   handleDialogClose(confirmed = false) {
@@ -1559,7 +1621,7 @@ export default class Form extends React.Component<FormProps, object> {
         );
     }
 
-    store.closeDrawer(true);
+    store.closeDrawer(true, values);
   }
 
   handleDrawerClose() {
@@ -1673,6 +1735,7 @@ export default class Form extends React.Component<FormProps, object> {
     otherProps: Partial<FormProps> = {}
   ): React.ReactNode {
     children = children || [];
+    const {classnames: cx} = this.props;
 
     if (!Array.isArray(children)) {
       children = [children];
@@ -1703,8 +1766,6 @@ export default class Form extends React.Component<FormProps, object> {
         return null;
       }
 
-      const {classnames: cx} = this.props;
-
       return (
         <div className={cx('Form-row')}>
           {children.map((control, key) =>
@@ -1727,6 +1788,63 @@ export default class Form extends React.Component<FormProps, object> {
       );
     }
 
+    if (this.props.mode === 'flex') {
+      let rows: any = [];
+      children.forEach(child => {
+        if (typeof child.row === 'number') {
+          if (rows[child.row]) {
+            rows[child.row].push(child);
+          } else {
+            rows[child.row] = [child];
+          }
+        } else {
+          // 没有 row 的，就单启一行
+          rows.push([child]);
+        }
+      });
+      return (
+        <>
+          {rows.map((children: any, index: number) => {
+            return (
+              <div className={cx('Form-flex')} role="flex-row" key={index}>
+                {children.map((control: any, key: number) => {
+                  const split = control.colSize?.split('/');
+                  const colSize =
+                    split?.[0] && split?.[1]
+                      ? (split[0] / split[1]) * 100 + '%'
+                      : control.colSize;
+                  return ~['hidden', 'formula'].indexOf(
+                    (control as any).type
+                  ) ? (
+                    this.renderChild(control, key, otherProps)
+                  ) : (
+                    <div
+                      key={control.id || key}
+                      className={cx(
+                        `Form-flex-col`,
+                        (control as Schema).columnClassName
+                      )}
+                      style={{
+                        flex:
+                          colSize && !['1', 'auto'].includes(colSize)
+                            ? `0 0 ${colSize}`
+                            : ''
+                      }}
+                      role="flex-col"
+                    >
+                      {this.renderChild(control, '', {
+                        ...otherProps,
+                        mode: 'flex'
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </>
+      );
+    }
     return children.map((control, key) =>
       this.renderChild(control, key, otherProps, region)
     );
@@ -1779,7 +1897,10 @@ export default class Form extends React.Component<FormProps, object> {
       formSubmited: form.submited,
       formMode: mode,
       formHorizontal: horizontal,
-      formLabelAlign: labelAlign !== 'left' ? 'right' : labelAlign,
+      formLabelAlign:
+        !labelAlign || !['left', 'right', 'top'].includes(labelAlign)
+          ? 'right'
+          : labelAlign,
       formLabelWidth: labelWidth,
       controlWidth,
       /**
@@ -2213,7 +2334,6 @@ export class FormRenderer extends Form {
   }
 
   getData() {
-    const {store} = this.props;
-    return store.data;
+    return this.getValues();
   }
 }

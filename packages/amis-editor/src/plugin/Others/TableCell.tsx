@@ -163,7 +163,7 @@ export class TableCellPlugin extends BasePlugin {
             }),
 
             {
-              visibleOn: 'data.quickEdit',
+              visibleOn: 'this.quickEdit',
               name: 'quickEdit.mode',
               type: 'button-group-select',
               value: 'popOver',
@@ -190,7 +190,7 @@ export class TableCellPlugin extends BasePlugin {
             getSchemaTpl('switch', {
               name: 'quickEdit.saveImmediately',
               label: '是否立即保存',
-              visibleOn: 'data.quickEdit',
+              visibleOn: 'this.quickEdit',
               description: '开启后修改即提交，而不是标记修改批量提交。',
               descriptionClassName: 'help-block m-b-none',
               pipeIn: (value: any) => !!value
@@ -205,7 +205,7 @@ export class TableCellPlugin extends BasePlugin {
             }),
 
             {
-              visibleOn: 'data.quickEdit',
+              visibleOn: 'this.quickEdit',
               name: 'quickEdit',
               asFormItem: true,
               children: ({value, onChange, data}: any) => {
@@ -282,7 +282,7 @@ export class TableCellPlugin extends BasePlugin {
               name: 'popOver.mode',
               label: '查看更多弹出模式',
               type: 'select',
-              visibleOn: 'data.popOver',
+              visibleOn: 'this.popOver',
               pipeIn: defaultValue('popOver'),
               options: [
                 {
@@ -306,7 +306,7 @@ export class TableCellPlugin extends BasePlugin {
               name: 'popOver.position',
               label: '查看更多弹出模式',
               type: 'select',
-              visibleOn: 'data.popOver && data.popOver.mode === "popOver"',
+              visibleOn: 'this.popOver && this.popOver.mode === "popOver"',
               pipeIn: defaultValue('center'),
               options: [
                 {
@@ -357,7 +357,7 @@ export class TableCellPlugin extends BasePlugin {
             },
 
             {
-              visibleOn: 'data.popOver',
+              visibleOn: 'this.popOver',
               name: 'popOver',
               asFormItem: true,
               children: ({value, onChange}: any) => {
@@ -395,7 +395,7 @@ export class TableCellPlugin extends BasePlugin {
             }),
 
             {
-              visibleOn: 'data.copyable',
+              visibleOn: 'this.copyable',
               name: 'copyable.content',
               type: 'textarea',
               label: '复制内容模板',
@@ -442,7 +442,7 @@ export class TableCellPlugin extends BasePlugin {
               name: 'breakpoint',
               type: 'button-group-select',
               label: '触发底部显示条件',
-              visibleOn: 'data.tableFootableEnabled',
+              visibleOn: 'this.tableFootableEnabled',
               size: 'xs',
               multiple: true,
               options: [

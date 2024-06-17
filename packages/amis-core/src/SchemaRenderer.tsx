@@ -23,6 +23,7 @@ import {isAlive} from 'mobx-state-tree';
 import {reaction} from 'mobx';
 import {resolveVariableAndFilter} from './utils/tpl-builtin';
 import {buildStyle} from './utils/style';
+import {isExpression} from './utils/formula';
 import {StatusScopedProps} from './StatusScoped';
 import {evalExpression, filter} from './utils/tpl';
 
@@ -44,6 +45,7 @@ export const RENDERER_TRANSMISSION_OMIT_PROPS = [
   'children',
   'ref',
   'visible',
+  'loading',
   'visibleOn',
   'hidden',
   'hiddenOn',
@@ -66,7 +68,8 @@ export const RENDERER_TRANSMISSION_OMIT_PROPS = [
   'renderLabel',
   'trackExpression',
   'editorSetting',
-  'updatePristineAfterStoreDataReInit'
+  'updatePristineAfterStoreDataReInit',
+  'source'
 ];
 
 const componentCache: SimpleMap = new SimpleMap();
@@ -222,6 +225,12 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
       ref = ref.getWrappedInstance();
     }
 
+    if (ref && !ref.props) {
+      Object.defineProperty(ref, 'props', {
+        get: () => this.props
+      });
+    }
+
     this.cRef = ref;
   }
 
@@ -339,6 +348,8 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
         ? null
         : React.isValidElement(schema.children)
         ? schema.children
+        : typeof schema.children !== 'function'
+        ? null
         : (schema.children as Function)({
             ...rest,
             ...exprProps,
@@ -442,8 +453,10 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
       exprProps = {};
     }
 
-    const isClassComponent = Component.prototype?.isReactComponent;
-    let props = {
+    const supportRef =
+      Component.prototype?.isReactComponent ||
+      (Component as any).$$typeof === Symbol.for('react.forward_ref');
+    let props: any = {
       ...theme.getRendererConfig(renderer.name),
       ...restSchema,
       ...chainEvents(rest, restSchema),
@@ -455,7 +468,6 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
       propKey: propKey,
       $path: $path,
       $schema: schema,
-      ref: this.refFn,
       render: this.renderChild,
       rootStore,
       statusStore,
@@ -489,7 +501,7 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
     // 自动解析变量模式，主要是方便直接引入第三方组件库，无需为了支持变量封装一层
     if (renderer.autoVar) {
       for (const key of Object.keys(schema)) {
-        if (typeof props[key] === 'string') {
+        if (typeof props[key] === 'string' && isExpression(props[key])) {
           props[key] = resolveVariableAndFilter(
             props[key],
             props.data,
@@ -499,10 +511,10 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
       }
     }
 
-    const component = isClassComponent ? (
+    const component = supportRef ? (
       <Component {...props} ref={this.childRef} />
     ) : (
-      <Component {...props} />
+      <Component {...props} forwardedRef={this.childRef} />
     );
 
     return this.props.env.enableAMISDebug ? (

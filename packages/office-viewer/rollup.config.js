@@ -3,7 +3,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import resolve from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
-import {main, module, dependencies} from './package.json';
+import {main, module, dependencies, peerDependencies} from './package.json';
 import path from 'path';
 
 const settings = {
@@ -12,7 +12,7 @@ const settings = {
 
 const external = id =>
   new RegExp(
-    `^(?:${Object.keys(dependencies)
+    `^(?:${Object.keys({...dependencies, ...peerDependencies})
       .concat([])
       .map(value =>
         value.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&').replace(/-/g, '\\x2d')
@@ -20,37 +20,27 @@ const external = id =>
       .join('|')})`
   ).test(id);
 
+function outputFile(fileName, format) {
+  return {
+    input: [fileName],
+    output: [
+      {
+        ...settings,
+        dir: format === 'cjs' ? path.dirname(main) : path.dirname(module),
+        format: format,
+        exports: 'named',
+        preserveModulesRoot: './src',
+        preserveModules: true // Keep directory structure and files
+      }
+    ],
+    external: external,
+    plugins: getPlugins(format)
+  };
+}
+
 export default [
-  {
-    input: ['./src/index.ts'],
-    output: [
-      {
-        ...settings,
-        dir: path.dirname(main),
-        format: 'cjs',
-        exports: 'named',
-        preserveModulesRoot: './src',
-        preserveModules: true // Keep directory structure and files
-      }
-    ],
-    external: external,
-    plugins: getPlugins('cjs')
-  },
-  {
-    input: ['./src/index.ts'],
-    output: [
-      {
-        ...settings,
-        dir: path.dirname(module),
-        format: 'esm',
-        exports: 'named',
-        preserveModulesRoot: './src',
-        preserveModules: true // Keep directory structure and files
-      }
-    ],
-    external: external,
-    plugins: getPlugins('esm')
-  }
+  outputFile('./src/index.ts', 'cjs'),
+  outputFile('./src/index.ts', 'esm')
 ];
 
 function getPlugins(format = 'esm') {

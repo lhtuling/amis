@@ -8,7 +8,8 @@ import {
   CustomStyle,
   formatInputThemeCss,
   setThemeClassName,
-  TestIdBuilder
+  TestIdBuilder,
+  getVariable
 } from 'amis-core';
 import cx from 'classnames';
 import {NumberInput, Select} from 'amis-ui';
@@ -212,7 +213,7 @@ export default class NumberControl extends React.Component<
         toFixed(value.toString(), '.', normalizedPrecision)
       );
 
-      if (!isNaN(normalizedValue)) {
+      if (!isNaN(normalizedValue) && normalizedValue !== value) {
         setPrinstineValue(normalizedValue);
       }
     }
@@ -223,7 +224,12 @@ export default class NumberControl extends React.Component<
   /**
    * 动作处理
    */
-  doAction(action: ActionObject, args: any) {
+  doAction(
+    action: ActionObject,
+    data: any,
+    throwErrors: boolean = false,
+    args?: any
+  ) {
     const actionType = action?.actionType as string;
     const {
       min,
@@ -233,7 +239,10 @@ export default class NumberControl extends React.Component<
       resetValue,
       big,
       onChange,
-      clearValueOnEmpty
+      clearValueOnEmpty,
+      formStore,
+      store,
+      name
     } = this.props;
 
     if (actionType === 'clear') {
@@ -243,12 +252,14 @@ export default class NumberControl extends React.Component<
         this.filterNum(precision),
         this.filterNum(step)
       );
+      const pristineVal =
+        getVariable(formStore?.pristine ?? store?.pristine, name) ?? resetValue;
       const value = NumberInput.normalizeValue(
-        resetValue ?? '',
+        pristineVal ?? '',
         this.filterNum(min, big),
         this.filterNum(max, big),
         finalPrecision,
-        resetValue ?? '',
+        pristineVal ?? '',
         clearValueOnEmpty,
         big
       );
@@ -320,7 +331,6 @@ export default class NumberControl extends React.Component<
     if (rendererEvent?.prevented) {
       return;
     }
-
     onChange(resultValue);
 
     setTimeout(() => {
@@ -478,6 +488,8 @@ export default class NumberControl extends React.Component<
     const finalValue =
       unit && value && typeof value === 'string'
         ? value.replace(unit, '')
+        : isNaN(value)
+        ? void 0
         : value;
 
     return (
@@ -611,7 +623,7 @@ export default class NumberControl extends React.Component<
 
 @FormItem({
   type: 'input-number',
-  detectProps: ['unitOptions']
+  detectProps: ['unitOptions', 'precision']
 })
 export class NumberControlRenderer extends NumberControl {
   static defaultProps: Partial<FormControlProps> = {

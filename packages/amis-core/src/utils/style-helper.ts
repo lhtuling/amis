@@ -45,19 +45,74 @@ interface extra {
   suf?: string;
 }
 
-export function findOrCreateStyle(id: string, doc?: Document) {
+/**
+ * 查找或创建style标签
+ * @param param
+ * @param param.classId 根据classId查找或创建style标签
+ * @param param.id 用于赋值给style的class
+ * @param param.doc 文档对象，默认为document
+ * @param param.before 插入到某个class为id的style标签之前
+ */
+
+export function findOrCreateStyle({
+  classId,
+  doc,
+  before,
+  id
+}: {
+  classId: string;
+  doc?: Document;
+  before?: string;
+  id?: string;
+}) {
   doc = doc || document;
-  let varStyleTag = doc.getElementById(id);
+  let varStyleTag = doc.getElementById(classId);
   if (!varStyleTag) {
     varStyleTag = doc.createElement('style');
-    varStyleTag.id = id;
-    doc.body.appendChild(varStyleTag);
+    varStyleTag.id = classId;
+    varStyleTag.setAttribute('class', id || '');
+    const beforeStyleTag = doc.getElementsByClassName(
+      before || ''
+    )?.[0] as HTMLElement;
+    // 如果存在before则插入到before之前，否则插入到body中
+    if (beforeStyleTag) {
+      beforeStyleTag.before(varStyleTag);
+    } else {
+      doc.body.appendChild(varStyleTag);
+    }
   }
+
   return varStyleTag;
 }
 
-export function insertStyle(style: string, id: string, doc?: Document) {
-  const varStyleTag = findOrCreateStyle('amis-' + id, doc);
+/*
+ * 插入样式
+ * @param param
+ * @param param.style 样式内容
+ * @param param.classId 样式标识，会绑定到id上
+ * @param param.id id,会绑定到class上
+ * @param param.doc 文档对象
+ * @param param.before 插入到某个id之前
+ */
+export function insertStyle({
+  style,
+  classId,
+  id,
+  doc,
+  before
+}: {
+  style: string;
+  classId: string;
+  id?: string;
+  doc?: Document;
+  before?: string;
+}) {
+  const varStyleTag = findOrCreateStyle({
+    classId: 'amis-' + classId,
+    doc,
+    before,
+    id
+  });
 
   // bca-disable-line
   varStyleTag.innerHTML = style;
@@ -68,7 +123,7 @@ export function insertStyle(style: string, id: string, doc?: Document) {
 }
 
 export function addStyle(style: string, id: string) {
-  const varStyleTag = findOrCreateStyle(id);
+  const varStyleTag = findOrCreateStyle({classId: id});
   // bca-disable-line
   varStyleTag.innerHTML += style;
 }
@@ -270,11 +325,18 @@ export function insertCustomStyle(prams: {
 
   let {value} = formatStyle(themeCss, classNames, id, defaultData, data);
   value = customStyleClassPrefix ? `${customStyleClassPrefix} ${value}` : value;
-  let classId = id.replace('u:', '');
+  let classId = id?.replace?.('u:', '') || id + '';
   if (typeof data?.index === 'number') {
     classId += `-${data.index}`;
   }
-  insertStyle(value, classId, doc);
+  // 这里需要插入到wrapperCustomStyle的前面
+  insertStyle({
+    style: value,
+    classId,
+    doc,
+    id: classId.replace(/(-.*)/, ''),
+    before: classId.replace(/(-.*)/, '')
+  });
 }
 
 /**
@@ -323,7 +385,8 @@ export function insertEditCustomStyle(params: {
   doc?: Document;
   [propName: string]: any;
 }) {
-  const {customStyle, id, doc, data} = params;
+  const {customStyle, doc, data} = params;
+  const id = params.id?.replace?.('u:', '') || params.id + '';
   let styles: any = {};
   traverseStyle(customStyle, '', styles);
 
@@ -333,7 +396,7 @@ export function insertEditCustomStyle(params: {
     index = `-${data.index}`;
   }
   if (!isEmpty(styles)) {
-    const className = `wrapperCustomStyle-${id?.replace('u:', '')}${index}`;
+    const className = `wrapperCustomStyle-${id}${index}`;
     Object.keys(styles).forEach((key: string) => {
       if (!isObject(styles[key])) {
         content += `\n.${className} {\n  ${key}: ${
@@ -387,11 +450,12 @@ export function insertEditCustomStyle(params: {
     });
   }
 
-  insertStyle(
-    content,
-    'wrapperCustomStyle-' + (id?.replace('u:', '') || uuid()) + index,
-    doc
-  );
+  insertStyle({
+    style: content,
+    classId: 'wrapperCustomStyle-' + (id || uuid()) + index,
+    doc,
+    id: id.replace(/(-.*)/, '')
+  });
 }
 
 export interface InsertCustomStyle {
@@ -412,7 +476,8 @@ export function removeCustomStyle(
   doc?: Document,
   data?: any
 ) {
-  let styleId = 'amis-' + (type ? type + '-' : '') + id.replace('u:', '');
+  let styleId =
+    'amis-' + (type ? type + '-' : '') + (id.replace?.('u:', '') || id + '');
   if (typeof data?.index === 'number') {
     styleId += `-${data.index}`;
   }
@@ -457,5 +522,9 @@ export function setThemeClassName(params: {
     index = `-${data.index}`;
   }
 
-  return `${name}-${id.replace('u:', '')}` + (extra ? `-${extra}` : '') + index;
+  return (
+    `${name}-${id.replace?.('u:', '') || id}` +
+    (extra ? `-${extra}` : '') +
+    index
+  );
 }
